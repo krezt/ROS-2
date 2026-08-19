@@ -1,0 +1,5 @@
+{
+  "private": true,
+  "description": "Realm of Shinobi 2.0 Stage 25D dependency-free WebSocket coordinator",
+  "engines": {"node": ">=20"}
+}
