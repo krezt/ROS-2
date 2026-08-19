@@ -1,0 +1,16 @@
+{
+  "name": "ros2-simulation-core",
+  "version": "0.25.4-stage25d-full-multiplayer-validation",
+  "private": true,
+  "type": "module",
+  "description": "Realm of Shinobi 2.0 deterministic combat \u2014 Stage 25D full multiplayer validation",
+  "scripts": {
+    "test": "node --test",
+    "demo": "node demo/stage23-demo.js",
+    "server": "node server/relay-server.cjs",
+    "client": "node client/dev-server.cjs"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
