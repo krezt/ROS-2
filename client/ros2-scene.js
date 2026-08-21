@@ -18,6 +18,8 @@ import {
   shouldFloatStatusFeedback,
   abilityDetailModel,
   compactAbilitySummary,
+  abilityUsesRemaining,
+  abilityUseText,
   validatePlaytestTeams
 } from '../src/client-foundation.js';
 import { LocalSinglePlayerMatch, simulateRosterRoundPackage } from '../src/client-match.js';
@@ -74,8 +76,10 @@ export class RosBattleScene extends Phaser.Scene {
     this.load.spritesheet('vfx-mystic-dagger','assets/vfx/mystic-dagger.png',{frameWidth:80,frameHeight:96});
     this.load.image('vfx-mystic-berserk','assets/vfx/mystic-berserk-sigil.png');
     this.load.image('vfx-mystic-stun','assets/vfx/mystic-stun-rings.png');
-    this.load.image('vfx-mystic-suppression','assets/vfx/mystic-suppression-skull.png');
     this.load.image('vfx-mystic-spellbreak','assets/vfx/mystic-spellbreak-burst.png');
+    this.load.image('vfx-mystic-premonition','assets/vfx/mystic-premonition-eye.png');
+    this.load.image('vfx-mystic-proc','assets/vfx/mystic-proc-reticle.png');
+    this.load.image('vfx-mystic-psychic','assets/vfx/mystic-psychic-pulse.png');
     this.load.image('vfx-warhorn','assets/vfx/warhorn.png');
     this.load.image('vfx-archer-arrow','assets/vfx/archer-arrow-projectile.png');
     this.load.image('vfx-archer-impact','assets/vfx/archer-impact-burst.png');
@@ -86,7 +90,9 @@ export class RosBattleScene extends Phaser.Scene {
     this.load.image('vfx-barbarian-rage','assets/vfx/barbarian-rage-burst.png');
     this.load.image('vfx-archer-mark','assets/vfx/archer-hunters-mark.png');
     this.load.image('vfx-archer-focus','assets/vfx/archer-eagle-eye.png');
-    this.load.image('vfx-archer-volley','assets/vfx/archer-volley-rain.png');
+    this.load.image('vfx-archer-volley','assets/vfx/archer-volley-cluster.png');
+    this.load.image('vfx-archer-feather','assets/vfx/archer-feather-sigil.png');
+    this.load.image('vfx-archer-cover','assets/vfx/archer-guarding-wind.png');
     this.load.image('vfx-cleric-aura','assets/vfx/cleric-defensive-aura.png');
     this.load.image('vfx-cleric-angel','assets/vfx/cleric-guardian-angel.png');
     this.load.image('vfx-cleric-light','assets/vfx/cleric-piercing-light.png');
@@ -101,6 +107,7 @@ export class RosBattleScene extends Phaser.Scene {
     this.load.image('vfx-paladin-judgment','assets/vfx/paladin-judgment-beam.png');
     this.load.image('vfx-paladin-heal','assets/vfx/paladin-heal-pulse.png');
     this.load.image('vfx-paladin-emblem','assets/vfx/paladin-divine-emblem.png');
+    this.load.image('vfx-paladin-proc','assets/vfx/paladin-basic-proc.png');
     this.load.image('vfx-necro-target','assets/vfx/necromancer-target-reticle.png');
     this.load.image('vfx-necro-toxic-orb','assets/vfx/necromancer-toxic-orb.png');
     this.load.image('vfx-necro-skull','assets/vfx/necromancer-skull-projectile.png');
@@ -111,6 +118,28 @@ export class RosBattleScene extends Phaser.Scene {
     this.load.image('vfx-necro-rune','assets/vfx/necromancer-death-rune-circle.png');
     this.load.image('vfx-necro-soul','assets/vfx/necromancer-soul-flame.png');
     this.load.image('vfx-necro-mist','assets/vfx/necromancer-grave-mist.png');
+    this.load.image('vfx-barbarian-impact','assets/vfx/barbarian-impact-burst.png');
+    this.load.image('vfx-barbarian-blood','assets/vfx/barbarian-blood-hit-spark.png');
+    this.load.image('vfx-barbarian-rend','assets/vfx/barbarian-finishing-strike.png');
+    this.load.image('vfx-electro-storm','assets/vfx/electromancer-electrical-storm.png');
+    this.load.image('vfx-electro-shift','assets/vfx/electromancer-shift-flash.png');
+    this.load.image('vfx-electro-tempest','assets/vfx/electromancer-god-tempest.png');
+    this.load.image('vfx-electro-slash','assets/vfx/electromancer-lightning-slash.png');
+    this.load.image('vfx-electro-impact','assets/vfx/electromancer-impact-spark.png');
+    this.load.image('vfx-mage-arcane-surge','assets/vfx/mage-arcane-surge.png');
+    this.load.image('vfx-mage-arcane-echo','assets/vfx/mage-arcane-echo.png');
+    this.load.image('vfx-mage-meteor','assets/vfx/mage-meteor-impact.png');
+    this.load.image('vfx-mage-fireball','assets/vfx/mage-fireball-projectile.png');
+    this.load.image('vfx-mage-fireball-impact','assets/vfx/mage-fireball-impact.png');
+    this.load.image('vfx-mage-ward','assets/vfx/mage-arcane-ward.png');
+    this.load.image('vfx-mage-proc','assets/vfx/mage-basic-proc.png');
+    this.load.image('vfx-shinobi-invisibility','assets/vfx/shinobi-invisibility-cast.png');
+    this.load.image('vfx-shinobi-dispel-cast','assets/vfx/shinobi-dispel-cast.png');
+    this.load.image('vfx-shinobi-dispel-target','assets/vfx/shinobi-dispel-target.png');
+    this.load.image('vfx-shinobi-haste','assets/vfx/shinobi-thiefs-haste-cast.png');
+    this.load.image('vfx-shinobi-regen','assets/vfx/shinobi-regen-potion-cast.png');
+    this.load.image('vfx-shinobi-bleed','assets/vfx/shinobi-bleed-burst.png');
+    this.load.image('vfx-shinobi-imbue','assets/vfx/shinobi-bleed-imbue-cast.png');
   }
 
   create(){
@@ -318,6 +347,17 @@ export class RosBattleScene extends Phaser.Scene {
     v.name?.setAlpha(invisible?.55:1);
   }
 
+  nameColorForUnit(unit){
+    return unit?.side===this.playerSelectionSide() ? '#ffffff' : '#ff6b6b';
+  }
+
+  applyUnitNameStyle(v){
+    if(!v?.name||!v?.unit)return;
+    const color=this.nameColorForUnit(v.unit);
+    if(v.name.setColor)v.name.setColor(color);
+    else v.name.style.color=color;
+  }
+
   createUnitView(unit){
     const pos=gridToWorld(unit.position,this.view), sideA=unit.side===SIDE.A;
     const animated=Boolean(CHAMPION_ANIMATION_MANIFESTS[unit.archetypeId]);
@@ -341,7 +381,7 @@ export class RosBattleScene extends Phaser.Scene {
     const children=[selectRing,targetRing,body];if(sprite)children.push(sprite);children.push(name,id,hpBg,hp,controlDot,hitTarget);
     const c=this.add.container(pos.x,pos.y,children);
     const view={container:c,selectRing,targetRing,body,sprite,name,id,hp,hpBg,controlDot,hitTarget,unit:structuredClone(unit),animated,facing};
-    this.unitViews.set(unit.unitId,view);this.syncUnitDepth(view,unit.position);this.refreshStealthVisual(view);
+    this.unitViews.set(unit.unitId,view);this.syncUnitDepth(view,unit.position);this.refreshStealthVisual(view);this.applyUnitNameStyle(view);
   }
 
   syncUnitView(unit){
@@ -356,7 +396,7 @@ export class RosBattleScene extends Phaser.Scene {
     }else v.container.setAlpha(alive?1:.38).setAngle(alive?0:90);
     v.body.setStrokeStyle(2,unit.side===SIDE.A?0xaed3ff:0xffc1c1);
     v.hp.width=44*Math.max(0,unit.stats.hp/unit.stats.maxHP);
-    v.controlDot?.setVisible(hasControlImpairment(unit));this.refreshStealthVisual(v);
+    v.controlDot?.setVisible(hasControlImpairment(unit));this.refreshStealthVisual(v);this.applyUnitNameStyle(v);
     this.refreshUnitHighlights();
   }
 
@@ -465,6 +505,7 @@ export class RosBattleScene extends Phaser.Scene {
     if(!this.pendingAbility||this.pendingAbility.targetType!==TARGET_TYPE.UNIT)return false;
     const state=this.currentState(),actor=state?.units?.[this.selectedActorId],unit=state?.units?.[unitId];
     if(!actor||!unit)return false;
+    if(this.pendingAbility.deadTargetOnly===true)return unit.side===actor.side&&unit.lifeState===LIFE_STATE.DEAD;
     if(this.pendingAbility.allowDeadTarget===true)return unit.side===actor.side;
     if(unit.lifeState!==LIFE_STATE.ALIVE)return false;
     const intent=abilityIntent(this.pendingAbility);
@@ -500,13 +541,20 @@ export class RosBattleScene extends Phaser.Scene {
     if(!this.selectedActorId||this.busy)return;
     const state=this.currentState(),actor=state.units[this.selectedActorId];
     const ability=getArchetype(actor.archetypeId).abilities.find(a=>a.id===abilityId);if(!ability)return;
+    if(abilityUsesRemaining(actor,ability)===0){
+      this.pendingAbility=null;this.emitSelectionUi();this.refreshUnitHighlights();
+      this.setStatus(`${ability.label} has no uses remaining this match.`);
+      return;
+    }
     if(isImmediateTargetType(ability.targetType)){
       this.pendingAbility=null;this.commitAbility(ability,targetForImmediateAbility(ability.targetType));return;
     }
     this.pendingAbility=ability;this.emitSelectionUi();this.refreshUnitHighlights();
     this.setStatus(ability.targetType===TARGET_TYPE.GROUND
       ? `${ability.label}: TARGETING MODE — click a battlefield cell. ESC cancels.`
-      : `${ability.label}: TARGETING MODE — click a champion. Use the sidebar to switch actors. ESC cancels.`);
+      : ability.deadTargetOnly===true
+        ? `${ability.label}: TARGETING MODE — click a KO'd allied corpse. Living allies are not valid targets. ESC cancels.`
+        : `${ability.label}: TARGETING MODE — click a champion. Use the sidebar to switch actors. ESC cancels.`);
   }
 
   onBoardPointer(pointer){
@@ -567,6 +615,11 @@ export class RosBattleScene extends Phaser.Scene {
   commitAbility(ability,target){
     try{
       const state=this.currentState(),actor=state.units[this.selectedActorId],actorId=actor.unitId;
+      if(abilityUsesRemaining(actor,ability)===0)throw new Error(`${ability.label} has no uses remaining this match.`);
+      if(ability.deadTargetOnly===true){
+        const targetUnit=target?.type===TARGET_TYPE.UNIT?state.units[target.unitId]:null;
+        if(!targetUnit||targetUnit.side!==actor.side||targetUnit.lifeState!==LIFE_STATE.DEAD)throw new Error(`${ability.label} can only target a KO'd allied corpse.`);
+      }
       const d=createRosterAbilityDeclaration({roundNumber:state.roundNumber,actorId,archetypeId:actor.archetypeId,abilityId:ability.id,target});
       this.session.setDeclaration(d);this.flashCommittedGround(ability,target);
       this.advanceAfterCommit(`${actor.archetypeId}: ${actionSummary(d,state)}`,actorId);
@@ -653,15 +706,50 @@ export class RosBattleScene extends Phaser.Scene {
     const id=command.targetId??command.actorId,v=this.unitViews.get(id),rawKey=String(command.payload?.key??'').toLowerCase();
     const wasPresent=Boolean(rawKey&&v?.unit?.statuses?.some(s=>String(s.key).toLowerCase()===rawKey));
     this.updatePresentationStatus(command);
-    if(!shouldFloatStatusFeedback(command))return;
-    // Poison contributions and Bleed refreshes may arrive repeatedly in one attack sequence; float only the first acquisition.
-    if(command.payload?.eventType==='STATUS_APPLY'&&wasPresent&&['poison','bleed'].includes(rawKey))return;
     const raw=String(command.payload?.key??'status').toLowerCase();
     const key=raw.toUpperCase();
     const ending=['STATUS_REMOVE','STATUS_EXPIRE'].includes(command.payload?.eventType);
+    const source=this.unitViews.get(command.actorId);
+    const targetView=this.unitViews.get(id);
+    const ability=String(command.payload?.abilityId??command.payload?.actionId??this.lastActionByActor.get(command.actorId)??'').toUpperCase();
+    const mysticSpecialFx = !ending && command.payload?.eventType==='STATUS_APPLY' && targetView && source?.unit?.archetypeId==='Mystic' && (
+      (raw==='def_down' && ability==='MYSTIC_ATTACK') ||
+      (raw==='stun' && ability==='MYSTIC_STUN') ||
+      (raw==='spellbreak' && ability==='MENTAL_BREAKDOWN') ||
+      (raw==='berserk' && ability==='BERSERK') ||
+      (raw==='blind' && ability==='MIND_SHATTER')
+    );
+    if(!shouldFloatStatusFeedback(command) && !mysticSpecialFx)return;
+    // Poison contributions and Bleed refreshes may arrive repeatedly in one attack sequence; float only the first acquisition.
+    if(command.payload?.eventType==='STATUS_APPLY'&&wasPresent&&['poison','bleed'].includes(rawKey))return;
     const control=new Set(['stun','silence','taunt','berserk','root','suppression','spellbreak']);
     const color=raw==='poison'?'#2f9e44':(raw==='bleed'?'#ff5f68':(control.has(raw)?'#c08cff':'#f2e8d5'));
-    await this.floatText(id,ending?`${key} END`:key,color);
+    if(!ending&&raw==='poison'&&source?.unit?.archetypeId==='Necromancer'&&targetView){
+      if(ability==='PLAGUE_DETONATION'){
+        this.time.delayedCall(this.replayDuration(390),()=>{
+          if(!targetView?.container?.active)return;
+          this.pulseImageFx('vfx-necro-cloud',targetView.container.x,targetView.container.y-22,{scale:.34,duration:440,alpha:.96,scaleTo:.44});
+        });
+      }
+    }
+    if(!ending&&raw==='stun'&&source?.unit?.archetypeId==='Mage'&&ability==='MAGE_ATTACK'&&targetView){
+      this.pulseImageFx('vfx-mage-proc',targetView.container.x,targetView.container.y-22,{scale:.34,duration:440,alpha:.96,scaleTo:.44});
+    }
+    if(!ending&&raw==='bleed'&&source?.unit?.archetypeId==='Shinobi'&&targetView){
+      this.pulseImageFx('vfx-shinobi-bleed',targetView.container.x,targetView.container.y-22,{scale:.34,duration:440,alpha:.96,scaleTo:.44});
+    }
+    if(!ending&&raw==='def_up'&&source?.unit?.archetypeId==='Paladin'&&ability==='PALADIN_ATTACK'&&targetView){
+      this.pulseImageFx('vfx-paladin-proc',targetView.container.x,targetView.container.y-22,{scale:.30,duration:440,alpha:.96,scaleTo:.38,depth:12});
+    }
+    if(mysticSpecialFx){
+      let mysticKey='vfx-mystic-proc';
+      if(raw==='stun') mysticKey='vfx-mystic-stun';
+      else if(raw==='spellbreak') mysticKey='vfx-mystic-spellbreak';
+      else if(raw==='berserk') mysticKey='vfx-mystic-berserk';
+      else if(raw==='blind') mysticKey='vfx-mystic-psychic';
+      this.pulseImageFx(mysticKey,targetView.container.x,targetView.container.y-22,{scale:.34,duration:440,alpha:.96,scaleTo:.44,depth:12});
+    }
+    if(shouldFloatStatusFeedback(command)) await this.floatText(id,ending?`${key} END`:key,color);
   }
 
   rememberActionCue(command){
@@ -670,13 +758,91 @@ export class RosBattleScene extends Phaser.Scene {
     return Promise.resolve();
   }
 
-  animateActionEnd(command){
+  animateItemCue(command){
+    if(command.payload?.eventType!=='ITEM_COMPLETE')return Promise.resolve();
     const v=this.unitViews.get(command.actorId);if(!v)return Promise.resolve();
     const abilityId=String(command.payload?.actionId??this.lastActionByActor.get(command.actorId)??'').toUpperCase();
+    if(v.unit?.archetypeId==='Shinobi'&&abilityId==='REGEN_POTION'){
+      this.spawnShinobiSignatureFx(v,abilityId,command.targetId);
+    }
+    return Promise.resolve();
+  }
+
+  animateActionEnd(command){
+    const v=this.unitViews.get(command.actorId);if(!v)return Promise.resolve();
+    if(command.payload?.eventType==='ACTION_INTERRUPT')return Promise.resolve();
+    const abilityId=String(command.payload?.actionId??this.lastActionByActor.get(command.actorId)??'').toUpperCase();
+    const target=command.payload?.targetPositionAtCompletion??command.payload?.groundLock??null;
+    if(target)this.faceViewToward(v,target);
+    if(v.unit?.archetypeId==='Archer'&&abilityId==='VOLLEY'){
+      const clipPromise=v.animated
+        ? this.playChampionClip(v,'attack',{direction:v.facing,durationMs:this.replayDuration(265),resolveAtRatio:.62})
+        : this.flashUnit(command.actorId,0x8e72ff);
+      const fxPromise=new Promise(resolve=>this.time.delayedCall(this.replayDuration(150),()=>{
+        this.spawnArcherSignatureFx(v,abilityId,command.targetId,target);
+        resolve();
+      }));
+      return Promise.all([clipPromise,fxPromise]).then(()=>undefined);
+    }
+    if(v.unit?.archetypeId==='Barbarian'&&abilityId==='RAMPAGE'){
+      this.spawnBarbarianSignatureFx(v,abilityId,command.targetId,target);
+      if(!v.animated)return Promise.resolve();
+      return this.playChampionClip(v,'cast',{direction:v.facing,durationMs:this.replayDuration(230),resolveAtRatio:.72});
+    }
     if(v.unit?.archetypeId!=='Warrior'||!['DIG_IN','SHIELDWALL'].includes(abilityId))return Promise.resolve();
     this.spawnWarriorSignatureFx(v,abilityId,command.targetId);
     if(!v.animated)return Promise.resolve();
     return this.playChampionClip(v,'cast',{direction:v.facing,durationMs:this.replayDuration(230),resolveAtRatio:.72});
+  }
+
+  isArcherSignatureOverride(abilityId=''){
+    return ['RANGERS_FOCUS','HUNTERS_MARK','VOLLEY'].includes(String(abilityId??'').toUpperCase());
+  }
+
+  isMageSignatureOverride(abilityId=''){
+    return ['ARCANE_SURGE','ARCANE_ECHO','ARCANE_WARD','FIREBALL','METEOR'].includes(String(abilityId??'').toUpperCase());
+  }
+
+  pulseImageFx(key,px,py,{scale=.16,duration=260,depth=12,alpha=.9,scaleTo=null,yoyo=false,repeat=0,angle=0,onComplete=null}={}){
+    const fx=this.add.image(px,py,key).setOrigin(.5).setScale(scale).setAlpha(alpha).setDepth(depth).setAngle(angle);
+    this.tweens.add({
+      targets:fx,
+      scale:scaleTo??scale*1.22,
+      alpha:0,
+      duration:this.replayDuration(duration),
+      ease:'Sine.easeOut',
+      yoyo,
+      repeat,
+      onComplete:()=>{fx.destroy();if(typeof onComplete==='function')onComplete();}
+    });
+    return fx;
+  }
+
+  spawnArcherImpactSignatureFx(targetView,abilityId){
+    if(!targetView)return;
+    const id=String(abilityId??'').toUpperCase();
+    const tx=targetView.container.x;
+    const ty=targetView.container.y-24;
+    if(id==='SNIPE'){
+      this.pulseImageFx('vfx-archer-feather',tx,ty,{scale:.34,duration:440,alpha:.96,scaleTo:.44});
+      return;
+    }
+    if(id==='COVER_FIRE'){
+      this.pulseImageFx('vfx-archer-cover',tx,ty,{scale:.34,duration:480,alpha:.94,scaleTo:.44});
+    }
+  }
+
+  animateArcherVolleyCluster(pos){
+    const fx=this.add.image(pos.x,pos.y-24,'vfx-archer-volley').setOrigin(.5).setScale(.86).setAlpha(.98).setDepth(12);
+    for(let r=-2;r<=2;r++){
+      for(let c=-2;c<=2;c++){
+        const impact=this.add.circle(pos.x+(c*22),pos.y-10+(r*20),4,0xf4efb0,.26).setStrokeStyle(2,0xe9ef96,.88).setDepth(11);
+        this.tweens.add({targets:impact,scale:2.2,alpha:0,duration:this.replayDuration(240),delay:this.replayDuration(((r+2)*5+(c+2))*10),onComplete:()=>impact.destroy()});
+      }
+    }
+    return new Promise(resolve=>{
+      this.tweens.add({targets:fx,scale:1.04,alpha:0,duration:this.replayDuration(520),ease:'Sine.easeOut',onComplete:()=>{fx.destroy();resolve();}});
+    });
   }
 
   spawnArcherSignatureFx(v,abilityId,targetId=null,targetPos=null){
@@ -685,26 +851,45 @@ export class RosBattleScene extends Phaser.Scene {
     const x=v.container.x,y=v.container.y;
     const target=this.unitViews.get(targetId);
     const point=targetPos ? gridToWorld(targetPos,this.view) : null;
-    const pulseImage=(key,px,py,scale=.16,duration=260)=>{
-      const fx=this.add.image(px,py,key).setOrigin(.5).setScale(scale).setAlpha(.9);
-      this.tweens.add({targets:fx,scale:scale*1.22,alpha:0,duration:this.replayDuration(duration),ease:'Sine.easeOut',onComplete:()=>fx.destroy()});
-    };
     if(id==='RANGERS_FOCUS'){
-      pulseImage('vfx-archer-focus',x,y-34,.15,300);
+      this.pulseImageFx('vfx-archer-focus',x,y-34,{scale:.34,duration:600,alpha:.95,scaleTo:.42});
       return;
     }
     if(id==='HUNTERS_MARK'){
-      const tx=point?.x??target?.container?.x??x,ty=(point?.y??target?.container?.y??y)-22;
-      pulseImage('vfx-archer-mark',tx,ty,.16,330);
+      const tx=point?.x??target?.container?.x??x;
+      const ty=(point?.y??target?.container?.y??y)-22;
+      this.pulseImageFx('vfx-archer-mark',tx,ty,{scale:.32,duration:264,alpha:.98,scaleTo:.40,yoyo:true,repeat:1});
       return;
     }
     if(id==='VOLLEY'){
-      const tx=point?.x??x,ty=(point?.y??y)-24;
-      const fx=this.add.image(tx,ty,'vfx-archer-volley').setOrigin(.5).setScale(.15).setAlpha(.95);
-      this.tweens.add({targets:fx,scale:.21,alpha:0,duration:this.replayDuration(360),ease:'Sine.easeOut',onComplete:()=>fx.destroy()});
+      const wx=point?.x??target?.container?.x??x;
+      const wy=point?.y??target?.container?.y??y;
+      this.animateArcherVolleyCluster({x:wx,y:wy});
       return;
     }
   }
+
+  spawnMageSignatureFx(v,abilityId,targetId=null,targetPos=null){
+    if(!v||v.unit?.archetypeId!=='Mage')return;
+    const id=String(abilityId??'').toUpperCase();
+    const x=v.container.x,y=v.container.y;
+    if(id==='ARCANE_SURGE'){
+      this.pulseImageFx('vfx-mage-arcane-surge',x,y-22,{scale:.34,duration:440,alpha:.96,scaleTo:.44,depth:12});
+      return;
+    }
+    if(id==='ARCANE_ECHO'){
+      this.pulseImageFx('vfx-mage-arcane-echo',x,y-22,{scale:.34,duration:440,alpha:.96,scaleTo:.44,depth:12});
+      return;
+    }
+    if(id==='ARCANE_WARD'){
+      for(const ally of this.unitViews.values()){
+        if(ally?.unit?.side!==v.unit.side||ally.unit.lifeState!==LIFE_STATE.ALIVE)continue;
+        this.pulseImageFx('vfx-mage-ward',ally.container.x,ally.container.y-22,{scale:.34,duration:440,alpha:.96,scaleTo:.44,depth:12});
+      }
+      return;
+    }
+  }
+
 
   spawnClericSignatureFx(v,abilityId,targetId=null,targetPos=null){
     if(!v||v.unit?.archetypeId!=='Cleric')return;
@@ -753,44 +938,51 @@ export class RosBattleScene extends Phaser.Scene {
     const x=v.container.x,y=v.container.y;
     const target=this.unitViews.get(targetId);
     const point=targetPos ? gridToWorld(targetPos,this.view) : null;
-    const pulseImage=(key,px,py,scale=.16,duration=320)=>{
-      const fx=this.add.image(px,py,key).setOrigin(.5).setScale(scale).setAlpha(.95);
-      this.tweens.add({targets:fx,scale:scale*1.18,alpha:0,duration:this.replayDuration(duration),ease:'Sine.easeOut',onComplete:()=>fx.destroy()});
+    const pulseImage=(key,px,py,scale=.32,duration=420,scaleTo=null)=>{
+      this.pulseImageFx(key,px,py,{scale,duration,alpha:.96,scaleTo:scaleTo??Math.max(scale*1.18,scale+.08),depth:12});
     };
     if(id==='SHIELD_BASH'){
       const tx=point?.x??target?.container?.x??x, ty=(point?.y??target?.container?.y??y)-18;
-      pulseImage('vfx-paladin-bash',tx,ty,.13,220);
+      pulseImage('vfx-paladin-bash',tx,ty,.31,420,.39);
       return;
     }
     if(id==='DIVINE_SHIELD'){
-      const tx=target?.container?.x??x, ty=(target?.container?.y??y)-16;
-      pulseImage('vfx-paladin-divine',tx,ty,.16,420);
+      const tx=target?.container?.x??x, ty=(target?.container?.y??y)-18;
+      pulseImage('vfx-paladin-divine',tx,ty,.32,440,.40);
       return;
     }
     if(id==='CLEANSE'){
       const tx=target?.container?.x??x, ty=(target?.container?.y??y)-18;
-      pulseImage('vfx-paladin-cleanse',tx,ty,.15,340);
-      pulseImage('vfx-paladin-heal',tx,ty-8,.13,260);
+      pulseImage('vfx-paladin-cleanse',tx,ty,.33,440,.41);
       return;
     }
     if(id==='SANCTIFY'){
       for(const ally of this.unitViews.values()){
         if(ally?.unit?.side!==v.unit.side||ally.unit.lifeState!==LIFE_STATE.ALIVE)continue;
-        pulseImage('vfx-paladin-sanctify',ally.container.x,ally.container.y+4,.15,380);
+        pulseImage('vfx-paladin-sanctify',ally.container.x,ally.container.y-14,.33,460,.41);
       }
-      pulseImage('vfx-paladin-emblem',x,y-16,.14,320);
       return;
     }
     if(id==='JUDGMENT'){
       const tx=point?.x??target?.container?.x??x, ty=(point?.y??target?.container?.y??y)-10;
-      pulseImage('vfx-paladin-judgment',tx,ty,.14,360);
+      pulseImage('vfx-paladin-judgment',tx,ty,.31,460,.39);
       return;
     }
   }
 
-  pulseImageFx(key,x,y,{scale=.16,duration=320,alpha=.95,grow=1.18,depth=12,rotation=0}={}){
+  pulseImageFx(key,x,y,{scale=.16,duration=320,alpha=.95,grow=1.18,depth=12,rotation=0,scaleTo=null,yoyo=false,repeat=0,angle=null,onComplete=null}={}){
     const fx=this.add.image(x,y,key).setOrigin(.5).setScale(scale).setAlpha(alpha).setRotation(rotation).setDepth(depth);
-    this.tweens.add({targets:fx,scale:scale*grow,alpha:0,duration:this.replayDuration(duration),ease:'Sine.easeOut',onComplete:()=>fx.destroy()});
+    if(angle!==null&&angle!==undefined)fx.setAngle(angle);
+    this.tweens.add({
+      targets:fx,
+      scale:scaleTo??(scale*grow),
+      alpha:0,
+      duration:this.replayDuration(duration),
+      ease:'Sine.easeOut',
+      yoyo,
+      repeat,
+      onComplete:()=>{fx.destroy();if(typeof onComplete==='function')onComplete();}
+    });
     return fx;
   }
 
@@ -849,8 +1041,7 @@ export class RosBattleScene extends Phaser.Scene {
       return;
     }
     if(id==='DEATH_TOUCH'){
-      this.pulseImageFx('vfx-necro-target',tx,ty,{scale:.13,duration:280,alpha:.95,grow:1.16});
-      this.pulseImageFx('vfx-necro-rune',tx,ty+10,{scale:.12,duration:360,alpha:.92,grow:1.15,depth:11});
+      this.pulseImageFx('vfx-necro-rune',tx,ty+10,{scale:.32,duration:264,alpha:.98,scaleTo:.40,yoyo:true,repeat:1,depth:12});
       return;
     }
     if(id==='PLAGUE'){
@@ -872,7 +1063,6 @@ export class RosBattleScene extends Phaser.Scene {
       const detonationTargets = target ? [target] : enemyViews;
       detonationTargets.forEach((enemy,index)=>{
         this.time.delayedCall(this.replayDuration(index*22),()=>{
-          this.pulseImageFx('vfx-necro-bloom',enemy.container.x,enemy.container.y-16,{scale:.125,duration:300,alpha:.96,grow:1.16,depth:12});
           this.pulseImageFx('vfx-necro-impact',enemy.container.x,enemy.container.y-18,{scale:.115,duration:250,alpha:.92,grow:1.18,depth:12});
         });
       });
@@ -881,31 +1071,16 @@ export class RosBattleScene extends Phaser.Scene {
   spawnMysticSignatureFx(v,abilityId,targetId=null,targetPos=null){
     if(!v||v.unit?.archetypeId!=='Mystic')return;
     const id=String(abilityId??'').toUpperCase();
-    const target=this.unitViews.get(targetId);
-    const point=targetPos ? gridToWorld(targetPos,this.view) : null;
-    const tx=point?.x??target?.container?.x??v.container.x;
-    const ty=(point?.y??target?.container?.y??v.container.y)-20;
-    if(id==='BERSERK'){
-      this.pulseImageFx('vfx-mystic-berserk',tx,ty,{scale:.42,duration:360,alpha:.96,grow:1.12,depth:12});
-      return;
-    }
-    if(id==='MYSTIC_STUN'){
-      this.pulseImageFx('vfx-mystic-stun',tx,ty,{scale:.4,duration:360,alpha:.96,grow:1.16,depth:12});
-      for(let i=1;i<=2;i++){
-        this.time.delayedCall(this.replayDuration(i*55),()=>{
-          this.pulseImageFx('vfx-mystic-stun',tx,ty,{scale:.32+.04*i,duration:260,alpha:.82,grow:1.14,depth:12});
+    if(id==='PREMONITION'){
+      const allies=[...this.unitViews.values()].filter(other=>other?.unit?.side===v.unit.side&&other.unit.lifeState===LIFE_STATE.ALIVE);
+      allies.forEach((ally,index)=>{
+        this.time.delayedCall(this.replayDuration(index*24),()=>{
+          this.pulseImageFx('vfx-mystic-premonition',ally.container.x,ally.container.y-22,{scale:.34,duration:440,alpha:.96,scaleTo:.44,depth:12});
         });
-      }
-      return;
-    }
-    if(id==='MIND_SHATTER'){
-      this.pulseImageFx('vfx-mystic-suppression',tx,ty,{scale:.36,duration:360,alpha:.94,grow:1.13,depth:12});
-      return;
-    }
-    if(id==='MENTAL_BREAKDOWN'){
-      this.pulseImageFx('vfx-mystic-spellbreak',tx,ty,{scale:.38,duration:340,alpha:.96,grow:1.18,depth:12});
+      });
     }
   }
+
 
   spawnWarriorSignatureFx(v,abilityId,targetId=null){
     if(!v||v.unit?.archetypeId!=='Warrior')return;
@@ -967,13 +1142,14 @@ export class RosBattleScene extends Phaser.Scene {
       return;
     }
     if(id==='RAMPAGE'){
-      this.pulseImageFx('vfx-barbarian-aura',x,y-8,{scale:.15,duration:360,alpha:.94,grow:1.14,depth:11});
-      this.pulseImageFx('vfx-barbarian-rage',x,y-20,{scale:.14,duration:300,alpha:.96,grow:1.18,depth:12});
+      this.pulseImageFx('vfx-barbarian-rage',x,y-20,{scale:.34,duration:440,alpha:.96,scaleTo:.44,depth:12});
+      this.pulseImageFx('vfx-barbarian-aura',x,y-8,{scale:.18,duration:420,alpha:.92,grow:1.16,depth:11});
       for(let i=0;i<3;i++){
         this.time.delayedCall(this.replayDuration(i*36),()=>{
           this.pulseImageFx('vfx-barbarian-ring',x,y-8,{scale:.10+i*.015,duration:220,alpha:.82-i*.12,grow:1.2,depth:11});
         });
       }
+      return;
     }
   }
 
@@ -994,28 +1170,60 @@ export class RosBattleScene extends Phaser.Scene {
     }
   }
 
+  spawnShinobiSignatureFx(v,abilityId,targetId=null,targetPos=null){
+    if(!v||v.unit?.archetypeId!=='Shinobi')return;
+    const id=String(abilityId??'').toUpperCase();
+    const x=v.container.x,y=v.container.y;
+    const target=this.unitViews.get(targetId);
+    const point=targetPos ? gridToWorld(targetPos,this.view) : null;
+    const tx=point?.x??target?.container?.x??x;
+    const ty=(point?.y??target?.container?.y??y)-22;
+    if(id==='INVISIBILITY'){
+      this.pulseImageFx('vfx-shinobi-invisibility',x,y-22,{scale:.34,duration:440,alpha:.96,scaleTo:.44,depth:12});
+      return;
+    }
+    if(id==='DISPEL'){
+      this.pulseImageFx('vfx-shinobi-dispel-cast',x,y-22,{scale:.34,duration:440,alpha:.96,scaleTo:.44,depth:12});
+      this.pulseImageFx('vfx-shinobi-dispel-target',tx,ty,{scale:.34,duration:440,alpha:.96,scaleTo:.44,depth:12});
+      return;
+    }
+    if(id==='THIEFS_HASTE'){
+      this.pulseImageFx('vfx-shinobi-haste',x,y-22,{scale:.34,duration:440,alpha:.96,scaleTo:.44,depth:12});
+      return;
+    }
+    if(id==='REGEN_POTION'){
+      this.pulseImageFx('vfx-shinobi-regen',x,y-22,{scale:.34,duration:440,alpha:.96,scaleTo:.44,depth:12});
+      return;
+    }
+    if(id==='BLEED_STRIKE'){
+      this.pulseImageFx('vfx-shinobi-imbue',x,y-22,{scale:.34,duration:440,alpha:.96,scaleTo:.44,depth:12});
+    }
+  }
+
   spawnElectromancerSignatureFx(v,abilityId,targetId=null,targetPos=null){
     if(!v||v.unit?.archetypeId!=='Electromancer')return;
     const id=String(abilityId??'').toUpperCase();
-    if(id!=='POWER_SURGE')return;
     const allies=[...this.unitViews.values()].filter(other=>other?.unit?.side===v.unit.side&&other.unit.lifeState===LIFE_STATE.ALIVE);
-    allies.forEach((ally,index)=>{
-      const ax=ally.container.x, ay=ally.container.y-18;
-      this.time.delayedCall(this.replayDuration(index*26),()=>{
-        const g=this.add.graphics().setDepth(12);
-        g.lineStyle(2,0x8edcff,.95);
-        g.beginPath();
-        g.moveTo(ax-12,ay+16); g.lineTo(ax-6,ay+4); g.lineTo(ax-1,ay+10); g.lineTo(ax+7,ay-8); g.lineTo(ax+3,ay+6); g.lineTo(ax+13,ay-2);
-        g.strokePath();
-        const g2=this.add.graphics().setDepth(12);
-        g2.lineStyle(2,0xf7f4a8,.82);
-        g2.beginPath();
-        g2.moveTo(ax+10,ay+18); g2.lineTo(ax+5,ay+7); g2.lineTo(ax+12,ay+8); g2.lineTo(ax+1,ay-10);
-        g2.strokePath();
-        const ring=this.add.circle(ax,ay+10,8,0x8edcff,.18).setStrokeStyle(2,0xdff7ff,.8).setDepth(11);
-        this.tweens.add({targets:[g,g2,ring],alpha:0,duration:this.replayDuration(220),onComplete:()=>{g.destroy();g2.destroy();ring.destroy();}});
+    if(id==='ELECTRICAL_STORM'){
+      const everyone=[...this.unitViews.values()].filter(other=>other?.unit?.lifeState===LIFE_STATE.ALIVE);
+      everyone.forEach((unitView,index)=>{
+        this.time.delayedCall(this.replayDuration(index*18),()=>{
+          this.pulseImageFx('vfx-electro-storm',unitView.container.x,unitView.container.y-18,{scale:.34,duration:420,alpha:.95,scaleTo:.46,depth:12});
+        });
       });
-    });
+      return;
+    }
+    if(id==='GOD_TEMPEST'){
+      this.pulseImageFx('vfx-electro-tempest',v.container.x,v.container.y-22,{scale:.32,duration:264,alpha:.98,scaleTo:.40,yoyo:true,repeat:1,depth:12});
+      return;
+    }
+    if(id==='POWER_SURGE'){
+      allies.forEach((ally,index)=>{
+        this.time.delayedCall(this.replayDuration(index*24),()=>{
+          this.pulseImageFx('vfx-electro-slash',ally.container.x,ally.container.y-18,{scale:.255,duration:400,alpha:.96,scaleTo:.33,depth:12});
+        });
+      });
+    }
   }
 
   makePresentationAdapter(){
@@ -1035,6 +1243,7 @@ export class RosBattleScene extends Phaser.Scene {
       [PRESENTATION_COMMAND.CAST_COMPLETE]:run(c=>this.animateSpellResolution(c)),
       [PRESENTATION_COMMAND.CAST_INTERRUPT]:run(c=>this.animateCastEnd(c,'INTERRUPTED')),
       [PRESENTATION_COMMAND.CAST_FIZZLE]:run(c=>this.animateCastEnd(c,'FIZZLE')),
+      [PRESENTATION_COMMAND.ITEM_CUE]:run(c=>this.animateItemCue(c)),
       [PRESENTATION_COMMAND.SPELL_RESOLUTION]:run(c=>this.animateSpellResolution(c)),
       [PRESENTATION_COMMAND.SPELL_PROJECTILE]:run(c=>this.animateProjectile(c)),
       [PRESENTATION_COMMAND.DAMAGE_FEEDBACK]:run(c=>this.damageFeedback(c)),
@@ -1141,7 +1350,9 @@ export class RosBattleScene extends Phaser.Scene {
     if(target)this.faceViewToward(v,target);
     const abilityId=String(command.payload?.abilityId??command.payload?.actionId??rememberedAction??this.lastActionByActor.get(command.actorId)??'').toUpperCase();
     if(abilityId)this.lastSpellAbilityByActor.set(command.actorId,abilityId);
-    this.spawnCastReleaseFx(v,abilityId);
+    const archerSignatureOverride=v.unit?.archetypeId==='Archer' && this.isArcherSignatureOverride(abilityId);
+    const mageSignatureOverride=v.unit?.archetypeId==='Mage' && this.isMageSignatureOverride(abilityId);
+    if(!(archerSignatureOverride||mageSignatureOverride)) this.spawnCastReleaseFx(v,abilityId);
     this.spawnWarriorSignatureFx(v,abilityId,command.targetId);
     this.spawnBarbarianSignatureFx(v,abilityId,command.targetId,target);
     if(v.unit?.archetypeId==='Archer'&&abilityId==='VOLLEY'){
@@ -1150,11 +1361,6 @@ export class RosBattleScene extends Phaser.Scene {
         : this.flashUnit(command.actorId,0x8e72ff);
       const fxPromise=new Promise(resolve=>this.time.delayedCall(this.replayDuration(150),()=>{
         this.spawnArcherSignatureFx(v,abilityId,command.targetId,target);
-        this.spawnClericSignatureFx(v,abilityId,command.targetId,target);
-        this.spawnPaladinSignatureFx(v,abilityId,command.targetId,target);
-        this.spawnNecromancerSignatureFx(v,abilityId,command.targetId,target);
-        this.spawnRogueSignatureFx(v,abilityId,command.targetId,target);
-        this.spawnElectromancerSignatureFx(v,abilityId,command.targetId,target);
         resolve();
       }));
       return Promise.all([clipPromise,fxPromise]).then(()=>undefined);
@@ -1164,8 +1370,10 @@ export class RosBattleScene extends Phaser.Scene {
     this.spawnPaladinSignatureFx(v,abilityId,command.targetId,target);
     this.spawnNecromancerSignatureFx(v,abilityId,command.targetId,target);
     this.spawnRogueSignatureFx(v,abilityId,command.targetId,target);
+    this.spawnShinobiSignatureFx(v,abilityId,command.targetId,target);
     this.spawnElectromancerSignatureFx(v,abilityId,command.targetId,target);
     this.spawnMysticSignatureFx(v,abilityId,command.targetId,target);
+    this.spawnMageSignatureFx(v,abilityId,command.targetId,target);
     if(!v.animated)return this.flashUnit(command.actorId,0x8e72ff);
     return this.playChampionClip(v,'cast',{direction:v.facing,durationMs:this.replayDuration(250),resolveAtRatio:.68});
   }
@@ -1203,15 +1411,20 @@ export class RosBattleScene extends Phaser.Scene {
     const p=gridToWorld(to,this.view),teleport=command.payload.kind==='TELEPORT';
     if(teleport){
       return new Promise(resolve=>{
-        const outFx=this.add.circle(v.container.x,v.container.y-8,8,0x8edcff,.24).setStrokeStyle(2,0xf7f4a8,.8);
-        this.tweens.add({targets:outFx,scale:3,alpha:0,duration:this.replayDuration(100),onComplete:()=>outFx.destroy()});
-        v.container.setAlpha(.18);
-        this.tweens.add({targets:v.container,x:p.x,y:p.y,duration:this.replayDuration(55),ease:'Quad.easeOut',onUpdate:()=>this.syncUnitDepthFromWorldY(v),onComplete:()=>{
-          v.unit.position={...to};this.syncUnitDepth(v,to);v.container.setAlpha(v.unit.lifeState===LIFE_STATE.ALIVE?1:.38);
-          const inFx=this.add.circle(p.x,p.y-8,6,0x8edcff,.5).setStrokeStyle(2,0xf7f4a8,.9);
-          this.tweens.add({targets:inFx,scale:3.2,alpha:0,duration:this.replayDuration(130),onComplete:()=>inFx.destroy()});
-          resolve();
-        }});
+        const isShiftTeleport=String(command.payload?.reason??command.payload?.movementReason??'').includes('SHIFT');
+        const preDelay=(isShiftTeleport&&['Electromancer','Mage'].includes(v.unit?.archetypeId))?this.replayDuration(90):0;
+        if(preDelay)this.pulseImageFx('vfx-electro-shift',v.container.x,v.container.y-18,{scale:.34,duration:220,alpha:.96,scaleTo:.44,depth:12});
+        this.time.delayedCall(preDelay,()=>{
+          const outFx=this.add.circle(v.container.x,v.container.y-8,8,0x8edcff,.24).setStrokeStyle(2,0xf7f4a8,.8);
+          this.tweens.add({targets:outFx,scale:3,alpha:0,duration:this.replayDuration(100),onComplete:()=>outFx.destroy()});
+          v.container.setAlpha(.18);
+          this.tweens.add({targets:v.container,x:p.x,y:p.y,duration:this.replayDuration(55),ease:'Quad.easeOut',onUpdate:()=>this.syncUnitDepthFromWorldY(v),onComplete:()=>{
+            v.unit.position={...to};this.syncUnitDepth(v,to);v.container.setAlpha(v.unit.lifeState===LIFE_STATE.ALIVE?1:.38);
+            const inFx=this.add.circle(p.x,p.y-8,6,0x8edcff,.5).setStrokeStyle(2,0xf7f4a8,.9);
+            this.tweens.add({targets:inFx,scale:3.2,alpha:0,duration:this.replayDuration(130),onComplete:()=>inFx.destroy()});
+            resolve();
+          }});
+        });
       });
     }
     return new Promise(resolve=>this.tweens.add({targets:v.container,x:p.x,y:p.y,duration:this.replayDuration(120),onUpdate:()=>this.syncUnitDepthFromWorldY(v),onComplete:()=>{v.unit.position={...to};this.syncUnitDepth(v,to);resolve();}}));
@@ -1382,10 +1595,7 @@ export class RosBattleScene extends Phaser.Scene {
     const duration=this.replayDuration(190),impactRatio=.62,impactDelay=Math.max(1,Math.round(duration*impactRatio));
     const clip=this.playChampionClip(a,'attack',{direction:a.facing,durationMs:duration,resolveAtRatio:1});
     this.tweens.add({targets:a.container,x:a.container.x+dx/len*7,y:a.container.y+dy/len*7,duration:Math.max(1,Math.round(duration*.44)),yoyo:true,ease:'Sine.easeOut'});
-    const fx=new Promise(resolve=>this.time.delayedCall(impactDelay,()=>{
-      this.spawnPaladinSignatureFx(a,'SHIELD_BASH',targetId,t.unit?.position??null);
-      resolve();
-    }));
+    const fx=new Promise(resolve=>this.time.delayedCall(impactDelay,resolve));
     return Promise.all([clip,fx]).then(()=>undefined);
   }
 
@@ -1445,9 +1655,9 @@ export class RosBattleScene extends Phaser.Scene {
     }
     if(ability==='INSULT')return this.animateInsultWave(a,b);
     if(ability==='PIERCING_LIGHT')return this.animateAreaBurst(b,{color:0xfff3ad,radius:70,shape:'LIGHT'});
-    if(ability==='VOLLEY')return this.animateAreaBurst(b,{color:0xcbe864,radius:88,shape:'VOLLEY'});
-    if(ability==='FIREBALL')return this.animateMagicProjectile(a,b,{color:0xff7b24,core:0xffe18a,blastRadius:74});
-    if(ability==='METEOR')return this.animateMeteor(b);
+    if(ability==='VOLLEY')return this.animateArcherVolleyCluster(b);
+    if(ability==='FIREBALL')return this.animateMageFireball(a,b);
+    if(ability==='METEOR')return this.animateMageMeteorImpact(b);
     if(ability==='POISON_BOLT'){
       const shots=[];
       for(let i=0;i<3;i++){
@@ -1498,6 +1708,29 @@ export class RosBattleScene extends Phaser.Scene {
     return new Promise(resolve=>this.tweens.add({targets:[g,flash],alpha:0,duration:this.replayDuration(170),onComplete:()=>{g.destroy();flash.destroy();resolve();}}));
   }
 
+  animateMageFireball(a,b){
+    const dx=b.x-a.x,dy=b.y-a.y;
+    const len=Math.max(1,Math.hypot(dx,dy));
+    const ux=dx/len,uy=dy/len;
+    const x0=a.x+ux*14,y0=a.y-22+uy*4;
+    const x1=b.x,y1=b.y-18;
+    const fireball=this.add.image(x0,y0,'vfx-mage-fireball').setOrigin(.5).setScale(.34).setAlpha(.98).setDepth(12);
+    // Keep the projectile horizontally mirrored only: the fireball head should lead,
+    // with the tail nearest the Mage. Do not rotate, flip vertically, or apply any
+    // north/south mirroring so East-to-West casts cannot appear upside down.
+    fireball.setFlipX(dx>0);
+    return new Promise(resolve=>this.tweens.add({targets:fireball,x:x1,y:y1,duration:this.replayDuration(250),ease:'Quad.easeIn',onComplete:()=>{
+      fireball.destroy();
+      const blast=this.add.image(b.x,b.y-20,'vfx-mage-fireball-impact').setOrigin(.5).setScale(.62).setAlpha(.98).setDepth(12);
+      this.tweens.add({targets:blast,scale:.74,alpha:0,duration:this.replayDuration(520),ease:'Sine.easeOut',onComplete:()=>{blast.destroy();resolve();}});
+    }}));
+  }
+
+  animateMageMeteorImpact(b){
+    const fx=this.add.image(b.x,b.y-22,'vfx-mage-meteor').setOrigin(.5).setScale(.34).setAlpha(.98).setDepth(12);
+    return new Promise(resolve=>this.tweens.add({targets:fx,scale:.44,alpha:0,duration:this.replayDuration(440),ease:'Sine.easeOut',onComplete:()=>{fx.destroy();resolve();}}));
+  }
+
   animateMeteor(b){
     const rock=this.add.circle(b.x-34,b.y-90,9,0xc75b32,1).setStrokeStyle(3,0xffbf5a,.9);
     return new Promise(resolve=>this.tweens.add({targets:rock,x:b.x,y:b.y-6,duration:this.replayDuration(220),ease:'Cubic.easeIn',onComplete:()=>{
@@ -1530,13 +1763,31 @@ export class RosBattleScene extends Phaser.Scene {
     const v=this.unitViews.get(command.targetId);if(!v)return;
     const type=String(command.payload?.damageType??'PHYSICAL').toUpperCase();
     const ability=String(command.payload?.abilityId??command.payload?.actionId??'').toUpperCase();
+    const attacker=this.unitViews.get(command.actorId);
+    if(attacker?.unit?.archetypeId==='Archer') this.spawnArcherImpactSignatureFx(v,ability);
+    if(attacker?.unit?.archetypeId==='Barbarian'){
+      if(ability==='SMASH') this.pulseImageFx('vfx-barbarian-impact',v.container.x,v.container.y-22,{scale:.255,duration:360,alpha:.96,scaleTo:.33});
+      else if(ability==='BLOODLUST') this.pulseImageFx('vfx-barbarian-blood',v.container.x,v.container.y-22,{scale:.255,duration:360,alpha:.96,scaleTo:.33});
+      else if(ability==='REND') this.pulseImageFx('vfx-barbarian-rend',v.container.x,v.container.y-22,{scale:.255,duration:380,alpha:.96,scaleTo:.33});
+    }
+    if(attacker?.unit?.archetypeId==='Electromancer'&&ability==='ELECTRO_ATTACK'&&type==='MAGICAL'){
+      this.pulseImageFx('vfx-electro-impact',v.container.x,v.container.y-22,{scale:.34,duration:320,alpha:.96,scaleTo:.44});
+    }
+    if(attacker?.unit?.archetypeId==='Necromancer'&&ability==='PLAGUE_DETONATION'&&type==='POISON'){
+      this.pulseImageFx('vfx-necro-impact',v.container.x,v.container.y-22,{scale:.34,duration:380,alpha:.96,scaleTo:.44});
+    }
     if(type==='PHYSICAL'){
       const g=this.add.graphics();g.lineStyle(command.payload?.critical?4:3,command.payload?.critical?0xffdf61:0xf3f5f7,.9);
       g.lineBetween(v.container.x-11,v.container.y-16,v.container.x+12,v.container.y-4);
       g.lineBetween(v.container.x+7,v.container.y-19,v.container.x-8,v.container.y-1);
       this.tweens.add({targets:g,alpha:0,duration:this.replayDuration(120),onComplete:()=>g.destroy()});
-    }else if(type==='POISON')this.spawnStatusBurst(v,0x4cae5f);
-    else if(type==='BLEED')this.spawnStatusBurst(v,0xe85662);
+    }else if(type==='POISON'){
+      if(!(attacker?.unit?.archetypeId==='Necromancer'&&ability==='PLAGUE_DETONATION')) this.spawnStatusBurst(v,0x4cae5f);
+    }
+    else if(type==='BLEED'){
+      if(attacker?.unit?.archetypeId==='Shinobi') this.pulseImageFx('vfx-shinobi-bleed',v.container.x,v.container.y-22,{scale:.34,duration:440,alpha:.96,scaleTo:.44});
+      else this.spawnStatusBurst(v,0xe85662);
+    }
     else if(!/FIREBALL|METEOR|CHAIN_LIGHTNING|PIERCING_LIGHT/.test(ability))this.spawnStatusBurst(v,0x9edbff);
   }
 
@@ -1574,6 +1825,10 @@ export class RosBattleScene extends Phaser.Scene {
       }
       this.lastChainLightningTargetByActor.set(command.actorId, command.targetId);
     }
+    const attacker=this.unitViews.get(command.actorId);
+    if(ability==='SHIELD_BASH'&&attacker?.unit?.archetypeId==='Paladin'){
+      this.spawnPaladinSignatureFx(attacker,'SHIELD_BASH',command.targetId,v?.unit?.position??null);
+    }
     if(v?.animated&&v.unit.lifeState===LIFE_STATE.ALIVE){
       let shouldMirrorHit=false;
       if(['Barbarian','Electromancer','Cleric','Rogue','Mage','Shinobi'].includes(v.unit?.archetypeId)){
@@ -1594,7 +1849,10 @@ export class RosBattleScene extends Phaser.Scene {
 
   async healFeedback(command){
     this.updateLiveHp(command.targetId,command.payload.hpAfter);
-    const v=this.unitViews.get(command.targetId);if(v)this.spawnStatusBurst(v,0x79ff93);
+    const v=this.unitViews.get(command.targetId);
+    const ability=String(command.payload?.abilityId??command.payload?.actionId??'').toUpperCase();
+    const attacker=this.unitViews.get(command.actorId);
+    if(v && !(attacker?.unit?.archetypeId==='Archer' && ability==='RANGERS_FOCUS')) this.spawnStatusBurst(v,0x79ff93);
     await this.floatText(command.targetId,`+${command.payload.amount??'HEAL'}`,'#79ff93');
   }
 
@@ -1670,7 +1928,9 @@ export class RosBattleScene extends Phaser.Scene {
   renderChampionButtons(){
     const box=document.getElementById('championButtons');if(!box)return;box.innerHTML='';
     const state=this.currentState();if(!state||!this.session)return;
-    const units=Object.values(state.units).filter(u=>u.side===this.playerSelectionSide()).sort((a,b)=>a.draftSlot-b.draftSlot||a.unitId.localeCompare(b.unitId));
+    const units=Object.values(state.units)
+      .filter(u=>u.side===this.playerSelectionSide())
+      .sort((a,b)=>(a.position?.row??999)-(b.position?.row??999)||(a.position?.col??999)-(b.position?.col??999)||a.draftSlot-b.draftSlot||a.unitId.localeCompare(b.unitId));
     for(const unit of units){
       const declaration=this.session.get(unit.unitId),hud=unitHudModel(unit);
       const b=document.createElement('button');b.className='champion-select command-row';
@@ -1702,7 +1962,9 @@ export class RosBattleScene extends Phaser.Scene {
     const box=document.getElementById('abilityButtons');box.innerHTML='';
     const targetMode=document.getElementById('targetMode'),targetHint=document.getElementById('targetHint'),editorTitle=document.getElementById('editorTitle');
     targetMode?.classList.toggle('hidden',!this.pendingAbility);
-    if(targetHint&&this.pendingAbility)targetHint.textContent=`TARGETING: ${this.pendingAbility.label}`;
+    if(targetHint&&this.pendingAbility)targetHint.textContent=this.pendingAbility.deadTargetOnly===true
+      ? `TARGETING: ${this.pendingAbility.label} — KO'D ALLY/CORPSE ONLY`
+      : `TARGETING: ${this.pendingAbility.label}`;
     const hold=document.getElementById('holdButton');
     if(!this.selectedActorId){if(editorTitle)editorTitle.textContent='Choose a friendly champion row to edit an action.';if(hold)hold.disabled=true;this.renderAbilityDetail(null,null);return;}
     const state=this.currentState(),actor=state.units[this.selectedActorId];
@@ -1711,9 +1973,15 @@ export class RosBattleScene extends Phaser.Scene {
     const abilities=[...getArchetype(actor.archetypeId).abilities.filter(a=>a.playable!==false)].sort((a,b)=>(a.label==='Attack'?-1:0)-(b.label==='Attack'?-1:0));
     for(const a of abilities){
       const b=document.createElement('button');
-      const kindClass=a.actionKind==='SPELL'?'spell':(a.actionKind==='BASIC_ATTACK'?'attack':'ability');
-      b.className=`ability kind-${kindClass}`;if(this.pendingAbility?.id===a.id)b.classList.add('armed');
-      b.innerHTML=`<span class="ability-name">${a.label}</span><span class="meta">${compactAbilitySummary(a)}</span>`;
+      const kindClass=a.actionKind==='SPELL'?'spell':(a.actionKind==='BASIC_ATTACK'?'attack':(a.actionKind==='ITEM'?'item':'ability'));
+      const remaining=abilityUsesRemaining(actor,a);
+      const exhausted=remaining===0;
+      b.className=`ability kind-${kindClass}`;if(this.pendingAbility?.id===a.id)b.classList.add('armed');if(exhausted)b.classList.add('exhausted');
+      const useMeta=remaining===null?'':` • Uses ${remaining}/${a.usesMax}`;
+      b.innerHTML=`<span class="ability-name">${a.label}</span><span class="meta">${compactAbilitySummary(a)}${useMeta}</span>`;
+      b.disabled=this.busy||actor.lifeState!==LIFE_STATE.ALIVE||exhausted;
+      const useText=abilityUseText(actor,a);
+      b.title=exhausted?`${a.label}: no uses remaining (${a.usesMax} max per match).`:(useText?`${a.label}: ${useText}.`:'');
       b.onclick=()=>{this.renderAbilityDetail(actor,a);this.chooseAbility(a.id);};
       b.onmouseenter=()=>this.renderAbilityDetail(actor,a);b.onfocus=()=>this.renderAbilityDetail(actor,a);
       box.appendChild(b);

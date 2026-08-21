@@ -36,7 +36,8 @@ export function abilityTargetingModel(archetypeId, abilityId) {
     castRange:ability.castRange,
     area:ability.area?structuredClone(ability.area):null,
     allowInvisibleTarget:ability.allowInvisibleTarget===true,
-    allowDeadTarget:ability.allowDeadTarget===true
+    allowDeadTarget:ability.allowDeadTarget===true,
+    deadTargetOnly:ability.deadTargetOnly===true
   });
 }
 
@@ -44,6 +45,20 @@ export function areaPreviewForAbility(board, archetypeId, abilityId, center) {
   const ability=getAbility(archetypeId,abilityId);
   if(!ability.area || !center) return Object.freeze([]);
   return Object.freeze(cellsForArea(board,{...ability.area,center}).map(c=>Object.freeze({...c})));
+}
+
+export function abilityUsesRemaining(actor,ability){
+  if(!ability?.usesMax)return null;
+  const key=ability.usesKey??ability.id;
+  const stored=actor?.limitedUses?.[key];
+  const left=Number.isFinite(stored)?Math.trunc(stored):Math.trunc(ability.usesMax);
+  return Math.max(0,Math.min(Math.trunc(ability.usesMax),left));
+}
+
+export function abilityUseText(actor,ability){
+  const remaining=abilityUsesRemaining(actor,ability);
+  if(remaining===null)return '';
+  return `${remaining}/${ability.usesMax} use${ability.usesMax===1?'':'s'} remaining this match`;
 }
 
 const NEGATIVE_STATUS_KEYS=new Set(['poison','bleed','stun','silence','taunt','berserk','root','suppression','spellbreak','marked','blind','def_down','rend_def_down','atk_down','sdm_down']);
@@ -202,7 +217,7 @@ function scaledRange(min,max,multiplier=1){
 }
 function directMultiplier(actor,key){return Math.max(0,Number(effectiveStat(actor,key)??100))/100;}
 function timingLabel(ability){const d=ability.completionDelayCycles??0;return d>0?`${d} cycle${d===1?'':'s'}`:'Immediate';}
-function targetLabel(ability){return String(ability.targetType??'').replaceAll('_',' ').toLowerCase();}
+function targetLabel(ability){if(ability.deadTargetOnly===true)return "KO'd allied corpse";return String(ability.targetType??'').replaceAll('_',' ').toLowerCase();}
 function summarizeEffect(actor,effect,ability){
   const type=effect?.type;
   if(type==='DAMAGE'||type==='CONDITIONAL_DAMAGE'||type==='AOE_DAMAGE'){
@@ -228,7 +243,7 @@ function summarizeEffect(actor,effect,ability){
   if(type==='HYBRID_STORM')return `Storm: damages enemies, heals allies, may Stun enemies`;
   if(type==='CHAIN_LIGHTNING')return `${scaledRange(effect.min,effect.max,directMultiplier(actor,'SDM'))} magical damage; ${fmtPct((effect.bounceChance??.65)*100)} bounce chance to any unhit living champion`;
   if(type==='CLEANSE'){const keys=(effect.keys??[]).map(String);if(keys.length===1&&keys[0].toLowerCase()==='poison')return 'Cure Poison';return 'Cleanse matching negative statuses';}
-  if(type==='RESURRECT_OR_HEAL')return `Resurrect at ${fmtPct((effect.revivePctMaxHP??.5)*100)} max HP, or heal a living target`;
+  if(type==='RESURRECT_ONLY')return `Resurrect a KO'd ally at ${fmtPct((effect.revivePctMaxHP??.5)*100)} max HP${effect.cleanse?' and cleanse statuses':''}`;
   if(type==='TEMP_ATTACKS_MULTIPLIER')return `${effect.factor??1}× attack pool for ${effect.duration??'?'} rounds`;
   if(type==='TEMP_MOVEMENT_MULTIPLIER')return `${effect.factor??1}× Movement pool for ${effect.duration??'?'} rounds`;
   if(type==='STRIP_DEFENSIVE_BUFF')return `Strip ${effect.count??1} defensive buff`;
@@ -255,6 +270,8 @@ export function abilityDetailModel(actor,ability){
     const proc=ability.basicProc;if(proc){const chance=Number.isFinite(proc.roundChance)?`~${fmtPct(proc.roundChance*100)} across a full attack sequence${Number.isFinite(proc.maxPerRound)?` • max ${proc.maxPerRound}/round`:''}`:(Number.isFinite(proc.chance)?`${fmtPct(proc.chance*100)} per successful hit`:'guaranteed');let effect=proc.label??'Passive proc';if(proc.type==='DAMAGE')effect+=` • ${scaledRange(proc.min??0,proc.max??proc.min??0,directMultiplier(actor,proc.scalesWith??'SDM'))} ${String(proc.damageType??'MAGICAL').toLowerCase()} damage`;else if(proc.type==='LIFE_DRAIN')effect+=` • ${scaledRange(proc.min??0,proc.max??proc.min??0,directMultiplier(actor,proc.scalesWith??'SDM'))} magical drain`;else if(proc.type==='HEAL_SELF')effect+=` • ${scaledRange(proc.min??0,proc.max??proc.min??0,directMultiplier(actor,proc.scalesWith??'SDM'))} self-heal`;else if(proc.type==='STATUS'||proc.type==='STATUS_SELF')effect+=` • ${String(proc.key??'status').replaceAll('_',' ')}${proc.duration?` ${proc.duration}R`:''}`;lines.push(`Passive: ${effect} • ${chance}`);}
   }
   for(const effect of ability.effects??[]){const line=summarizeEffect(actor,effect,ability);if(line)lines.push(line);}
+  if(ability.deadTargetOnly===true)lines.push("Target restriction: KO'd allied corpses only; living allies are not legal targets");
+  const useText=abilityUseText(actor,ability);if(useText)lines.push(`Limited use: ${useText}`);
   if(ability.area?.shape)lines.push(`Area: ${String(ability.area.shape).replaceAll('_',' ')}`);
   return Object.freeze({
     id:ability.id,label:ability.label,actionKind:ability.actionKind,target:targetLabel(ability),timing:timingLabel(ability),
@@ -263,7 +280,7 @@ export function abilityDetailModel(actor,ability){
 }
 
 const COMPACT_HOSTILE_EFFECTS=new Set(['DAMAGE','CONDITIONAL_DAMAGE','CURRENT_HP_DAMAGE','LIFE_DRAIN','POISON_FLAT_ROLL','DETONATE_POISON_AND_RESEED','AOE_DAMAGE','MULTI_STRIKE','CHAIN_LIGHTNING','WEAPON_STRIKE','BACKSTAB_STRIKE']);
-const COMPACT_SUPPORT_EFFECTS=new Set(['HEAL','HEAL_PERCENT_ROLL','FULL_HEAL','RESURRECT_OR_HEAL','CLEANSE']);
+const COMPACT_SUPPORT_EFFECTS=new Set(['HEAL','HEAL_PERCENT_ROLL','FULL_HEAL','RESURRECT_ONLY','CLEANSE']);
 const COMPACT_CONTROL_KEYS=new Set(['stun','silence','taunt','berserk','root','suppression','spellbreak','blind','marked','def_down','rend_def_down']);
 export function compactAbilitySummary(ability){
   invariant(ability,'compactAbilitySummary requires ability.');
@@ -275,7 +292,7 @@ export function compactAbilitySummary(ability){
   const aoe=Boolean(ability.area)||ability.targetType===TARGET_TYPE.ALL_ENEMIES||ability.targetType===TARGET_TYPE.ALL_ALLIES;
   const self=ability.targetType===TARGET_TYPE.SELF;
   const unit=ability.targetType===TARGET_TYPE.UNIT;
-  const noun=ability.actionKind===ACTION_KIND.SPELL?'spell':'ability';
+  const noun=ability.actionKind===ACTION_KIND.SPELL?'spell':(ability.actionKind===ACTION_KIND.ITEM?'item':'ability');
   if(damaging&&aoe)return `Damaging AoE ${noun}`;
   if(damaging&&unit)return `Single-target damage ${noun}`;
   if(control&&unit)return `Single-target control ${noun}`;
@@ -299,7 +316,7 @@ export function validatePlaytestTeams(teamA,teamB,allowedArchetypes=[],{teamSize
 function livingSideActorIds(state,side){
   return Object.values(state.units)
     .filter(u=>u.side===side&&u.lifeState===LIFE_STATE.ALIVE&&u.entityKind!=='SUMMON')
-    .sort((a,b)=>a.draftSlot-b.draftSlot||a.unitId.localeCompare(b.unitId))
+    .sort((a,b)=>(a.position?.row??999)-(b.position?.row??999)||(a.position?.col??999)-(b.position?.col??999)||a.draftSlot-b.draftSlot||a.unitId.localeCompare(b.unitId))
     .map(u=>u.unitId);
 }
 
@@ -437,6 +454,7 @@ export function describeAuthoritativeEvent(event, state) {
     }
     case EVENT_TYPE.HEAL: {
       const via=p.procLabel?` with ${p.procLabel} (proc)`:(p.abilityId?` with ${displayActionName(state,event.actorId,p.abilityId)}`:'');
+      if(p.blockedByBleed) return `${cycle} BLEED prevents ${target} from gaining HP${via}.`;
       return `${cycle} ${actor} heals ${target}${via} for ${p.amount ?? '?'}${Number.isFinite(p.hpAfter) ? ` (${p.hpAfter} HP)` : ''}.`;
     }
     case EVENT_TYPE.STATUS_APPLY: {

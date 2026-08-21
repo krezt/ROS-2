@@ -219,7 +219,7 @@ function candidateScore(state,actor,candidate,{history=[]}={}){
       for(const u of targets) score+=Math.min(missingHp(u),Math.max(1,(effect.max??effect.min??0)))*0.18;
     } else if(effect.type==='FULL_HEAL') score+=missingHp(actor)*0.22;
     else if(effect.type==='HEAL_PERCENT_ROLL') score+=missingHp(actor)*0.16;
-    else if(effect.type==='RESURRECT_OR_HEAL') score+=tgt?.lifeState===LIFE_STATE.DEAD?360:missingHp(tgt??actor)*0.16;
+    else if(effect.type==='RESURRECT_ONLY') score+=tgt?.lifeState===LIFE_STATE.DEAD?360:-500;
     else if(effect.type==='CLEANSE') {
       const targets=effect.scope==='ALL_ALLIES'?allies(state,actor):effect.scope==='SELF'?[actor]:(tgt?[tgt]:[]);
       score+=targets.reduce((n,u)=>n+negativeCount(u)*42,0);
@@ -329,7 +329,7 @@ function comboSynergy(state,actors,combo){
   for(let i=0;i<combo.length;i++){
     const c=combo[i],actor=actors[i]; const hostile=hostileUnitId(c,state,actor);
     if(hostile){focused.set(hostile,(focused.get(hostile)??0)+1);const keys=effectKeys(c);if(keys.has('def_down')||keys.has('rend_def_down')||keys.has('marked')||c.ability.effects?.some(e=>e.type==='STRIP_DEFENSIVE_BUFF'))armorBreak.add(hostile);if(keys.has('stun')||keys.has('taunt')||keys.has('berserk')||keys.has('silence'))controls.set(hostile,(controls.get(hostile)??0)+1);}
-    if(c.target?.type===TARGET_TYPE.UNIT){const u=state.units[c.target.unitId];if(u&&u.side===actor.side&&(c.ability.effects??[]).some(e=>['HEAL','RESURRECT_OR_HEAL'].includes(e.type)))heals.set(u.unitId,(heals.get(u.unitId)??0)+1);}
+    if(c.target?.type===TARGET_TYPE.UNIT){const u=state.units[c.target.unitId];if(u&&u.side===actor.side&&(c.ability.effects??[]).some(e=>['HEAL','RESURRECT_ONLY'].includes(e.type)))heals.set(u.unitId,(heals.get(u.unitId)??0)+1);}
   }
   for(const n of focused.values())if(n>1)bonus+=(n-1)*28;
   for(const [id,n] of controls)if(n>1)bonus-=(n-1)*25;

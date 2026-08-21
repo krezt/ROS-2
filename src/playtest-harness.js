@@ -10,7 +10,7 @@ import { createRosterAbilityDeclaration, createRosterUnit, getArchetype } from '
 import { createRosterCombatScheduler } from './roster-combat-scheduler.js';
 
 const NEGATIVE_STATUS_KEYS = new Set(['stun','silence','taunt','berserk','root','suppression','spellbreak','poison','bleed','def_down','rend_def_down','marked','blind']);
-const SUPPORT_EFFECTS = new Set(['HEAL','FULL_HEAL','RESURRECT_OR_HEAL','CLEANSE']);
+const SUPPORT_EFFECTS = new Set(['HEAL','FULL_HEAL','RESURRECT_ONLY','CLEANSE']);
 const HOSTILE_EFFECTS = new Set(['DAMAGE','CONDITIONAL_DAMAGE','CURRENT_HP_DAMAGE','LIFE_DRAIN','POISON_FLAT_ROLL','DETONATE_POISON','DETONATE_POISON_AND_RESEED','AOE_DAMAGE','MULTI_STRIKE','STUN_OR_DEF_DOWN','CHAIN_LIGHTNING','WEAPON_STRIKE','BACKSTAB_STRIKE','STRIP_DEFENSIVE_BUFF','STRIP_BENEFICIAL']);
 
 function canonicalUnits(state) { return Object.values(state.units).sort((a,b)=>a.unitId.localeCompare(b.unitId)); }
@@ -94,8 +94,7 @@ export function targetForAbility(state, actor, ability) {
       const intent = abilityIntent(ability);
       if (intent === 'ALLY_DEAD') {
         const dead = firstDeadAlly(state, actor);
-        if (dead) return { type: TARGET_TYPE.UNIT, unitId: dead.unitId };
-        return { type: TARGET_TYPE.UNIT, unitId: weakestAlly(state, actor).unitId };
+        return dead ? { type: TARGET_TYPE.UNIT, unitId: dead.unitId } : null;
       }
       if (intent === 'ALLY') return { type: TARGET_TYPE.UNIT, unitId: weakestAlly(state, actor).unitId };
       if (intent === 'ANY') {

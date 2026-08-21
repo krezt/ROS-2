@@ -120,14 +120,15 @@ function procDamage(simulation, actor, target, proc, { cycle, parentEventId, abi
 function procHealSelf(simulation, actor, proc, { cycle, parentEventId, abilityId }) {
   const amount = procScaledRoll(simulation, actor, proc);
   const hpBefore = actor.stats.hp;
-  actor.stats.hp = Math.min(actor.stats.maxHP, hpBefore + amount);
+  const blockedByBleed = Boolean(findStatus(actor, 'bleed'));
+  if (!blockedByBleed) actor.stats.hp = Math.min(actor.stats.maxHP, hpBefore + amount);
   const healed = actor.stats.hp - hpBefore;
   emitRuleEvent(simulation, EVENT_TYPE.HEAL, {
     initiativeCycle: cycle,
     actorId: actor.unitId,
     targetId: actor.unitId,
     parentEventId,
-    payload: { amount: healed, abilityId, proc: true, procLabel: proc.label ?? 'Basic proc', hpBefore, hpAfter: actor.stats.hp }
+    payload: { amount: healed, abilityId, proc: true, procLabel: proc.label ?? 'Basic proc', hpBefore, hpAfter: actor.stats.hp, blockedByBleed }
   });
   return healed;
 }

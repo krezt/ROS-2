@@ -1,0 +1,17 @@
+import { SIDE } from '../src/constants.js';
+import { create3v3BattleState } from '../src/playtest-harness.js';
+import { ActionSelectionSession, areaPreviewForAbility, gridToWorld } from '../src/client-foundation.js';
+import { LocalSinglePlayerMatch } from '../src/client-match.js';
+const state=create3v3BattleState({teamA:['Warrior','Rogue','Mage'],teamB:['Barbarian','Electromancer','Cleric'],matchId:'STAGE23-DEMO'});
+const selection=new ActionSelectionSession({state,side:SIDE.A});
+const match=new LocalSinglePlayerMatch({state,aiDifficulty:'NORMAL',aiDecisionSeed:23,seedFactory:()=>0x23002300});
+const round=match.resolveRound(selection.lock());
+console.log('Stage 23 Battlefield Foundation');
+console.log('Board:',`${state.board.width}x${state.board.height}`,'H0 world:',gridToWorld(state.units.H0.position));
+console.log('Fireball centered 4x4 cells:',areaPreviewForAbility(state.board,'Mage','FIREBALL',{row:5,col:10}).length);
+console.log('Human timeout/HOLD declarations:',round.roundPackage.declarationsA.map(d=>`${d.actorId}:${d.actionId}`).join(', '));
+console.log('AI declarations:',round.aiDeclarations.map(d=>`${d.actorId}:${d.actionId}`).join(', '));
+console.log('Server-style seed:',round.roundPackage.gameplaySeed);
+console.log('Events:',round.events.length,'Presentation commands:',round.timeline.length);
+console.log('Confirmation:',round.confirmation.kind);
+console.log('Run `npm run client` and open http://localhost:8080 for the Phaser sandbox.');

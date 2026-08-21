@@ -123,6 +123,16 @@ export function startPendingSpells(simulation, cycle) {
     const rosterRef = declarationForRuntime(simulation, runtime).payload?.roster;
     if (rosterRef) {
       const rosterAbility = getAbility(rosterRef.archetypeId, rosterRef.abilityId);
+      if (rosterAbility.deadTargetOnly === true) {
+        const declaration = declarationForRuntime(simulation, runtime);
+        const target = declaration.target?.type===TARGET_TYPE.UNIT ? simulation.state.units[declaration.target.unitId] : null;
+        if (!target || target.side!==actor.side || target.lifeState!==LIFE_STATE.DEAD) {
+          runtime.state = ACTION_RUNTIME_STATE.IMPOSSIBLE;
+          runtime.interrupted = true;
+          emit(simulation, EVENT_TYPE.ACTION_INTERRUPT, { initiativeCycle: cycle, actorId: runtime.actorId, targetId: runtime.declaredPrimaryTargetId, payload: { reason: 'TARGET_MUST_BE_KO_ALLY', actionId: runtime.actionId, preventedCastStart: true } });
+          continue;
+        }
+      }
       if (rosterAbility.usesMax) {
         const key = rosterAbility.usesKey ?? rosterAbility.id;
         const left = actor.limitedUses[key] ?? rosterAbility.usesMax;
@@ -205,7 +215,11 @@ function spellTargetValidity(simulation, runtime, spec) {
       if (!target) return { valid: false, reason: 'TARGET_DEAD_OR_MISSING' };
       const rosterRef = declaration.payload?.roster;
       const rosterAbility = rosterRef ? getAbility(rosterRef.archetypeId, rosterRef.abilityId) : null;
-      if (target.lifeState !== LIFE_STATE.ALIVE && !rosterAbility?.allowDeadTarget) return { valid: false, reason: 'TARGET_DEAD_OR_MISSING' };
+      if (rosterAbility?.deadTargetOnly === true) {
+        if (target.lifeState !== LIFE_STATE.DEAD || target.side !== actor.side) return { valid: false, reason: 'TARGET_MUST_BE_KO_ALLY' };
+      } else if (target.lifeState !== LIFE_STATE.ALIVE && !rosterAbility?.allowDeadTarget) {
+        return { valid: false, reason: 'TARGET_DEAD_OR_MISSING' };
+      }
       const distance = manhattanDistance(actor.position, target.position);
       if (distance > spec.castRange) return { valid: false, reason: 'OUT_OF_RANGE', distance };
       return { valid: true, target, distance };
@@ -274,13 +288,14 @@ function applyStage9SpellEffect(simulation, runtime, spec, validity, castComplet
     const amount = Math.max(0, Math.trunc(spec.effect.amount ?? 0));
     const target = validity.target;
     const before = target.stats.hp;
-    target.stats.hp = Math.min(target.stats.maxHP, target.stats.hp + amount);
+    const blockedByBleed = Boolean(findStatus(target, 'bleed'));
+    if (!blockedByBleed) target.stats.hp = Math.min(target.stats.maxHP, target.stats.hp + amount);
     const heal = emit(simulation, EVENT_TYPE.HEAL, {
       initiativeCycle: cycle,
       actorId: runtime.actorId,
       targetId: target.unitId,
       parentEventId: castCompleteEvent.eventId,
-      payload: { amount: target.stats.hp - before, hpBefore: before, hpAfter: target.stats.hp, source: 'SPELL' }
+      payload: { amount: target.stats.hp - before, hpBefore: before, hpAfter: target.stats.hp, source: 'SPELL', blockedByBleed }
     });
     emitted.push(heal.eventId);
   }
@@ -364,6 +379,17 @@ export function resolveMaturedSpells(simulation, cycle) {
       const interrupted = interruptSpell(simulation, runtime.actorId, { cycle, reason: 'DEATH' });
       results.push({ actorId: runtime.actorId, result: SPELL_COMPLETION_RESULT.INTERRUPTED, reason: 'DEATH', eventId: interrupted.eventId ?? null });
       continue;
+    }
+    // Re-check Spellbreak at the exact completion boundary. A faster spell may
+    // apply Spellbreak earlier in this same cycle; that must interrupt this
+    // still-charging spell before its effects resolve.
+    if (findStatus(caster, 'spellbreak')) {
+      const spellbreak = consumeSpellbreakAgainstRuntime(simulation, runtime, { cycle, parentEventId: runtime.metadata?.castStartEventId ?? null });
+      if (spellbreak.consumed && !spellbreak.echoFirstResolutionOnly) {
+        const interrupted = interruptSpell(simulation, runtime.actorId, { cycle, reason: 'SPELLBREAK', parentEventId: spellbreak.consumed.eventId });
+        results.push({ actorId: runtime.actorId, result: SPELL_COMPLETION_RESULT.INTERRUPTED, reason: 'SPELLBREAK', eventId: interrupted.eventId ?? null });
+        continue;
+      }
     }
     const spec = getSpellSpec(simulation, runtime);
     const validity = spellTargetValidity(simulation, runtime, spec);

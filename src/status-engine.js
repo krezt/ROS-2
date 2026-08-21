@@ -261,14 +261,15 @@ function tickRegen(simulation, unit, cycle) {
   const pct = Number.isFinite(regen.data?.pct) ? regen.data.pct : 0.10;
   const before = unit.stats.hp;
   const amount = Math.max(1, Math.floor(unit.stats.maxHP * pct));
-  unit.stats.hp = Math.min(unit.stats.maxHP, before + amount);
+  const blockedByBleed = Boolean(findStatus(unit, STATUS_KEY.BLEED));
+  if (!blockedByBleed) unit.stats.hp = Math.min(unit.stats.maxHP, before + amount);
   const healed = unit.stats.hp - before;
   const heal = emit(simulation, EVENT_TYPE.HEAL, {
     initiativeCycle: cycle, actorId: regen.sourceId ?? unit.unitId, targetId: unit.unitId, parentEventId: null,
-    payload: { amount: healed, hpBefore: before, hpAfter: unit.stats.hp, source: 'STATUS_TICK', statusKey: 'regen' }
+    payload: { amount: healed, hpBefore: before, hpAfter: unit.stats.hp, source: 'STATUS_TICK', statusKey: 'regen', blockedByBleed }
   });
-  emit(simulation, EVENT_TYPE.STATUS_TICK, { initiativeCycle: cycle, actorId: regen.sourceId ?? unit.unitId, targetId: unit.unitId, parentEventId: heal.eventId, payload: { key: 'regen', amount: healed, pct } });
-  return { amount: healed, pct };
+  emit(simulation, EVENT_TYPE.STATUS_TICK, { initiativeCycle: cycle, actorId: regen.sourceId ?? unit.unitId, targetId: unit.unitId, parentEventId: heal.eventId, payload: { key: 'regen', amount: healed, pct, blockedByBleed } });
+  return { amount: healed, pct, blockedByBleed };
 }
 
 function expireTimedStatus(simulation, unit, status, cycle) {
