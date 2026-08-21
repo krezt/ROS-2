@@ -215,3 +215,10 @@ aside{height:auto;overflow:visible;min-width:0;margin:0;grid-area:auto!important
 
 /* Stage 25C — synchronized network ban/draft */
 .draft-ban-summary{display:grid;grid-template-columns:1fr 1fr;gap:14px;padding:9px 16px;border-bottom:1px solid #30415c;background:#15101a}.draft-ban-summary h4{margin:0 0 6px;color:#d6b0e8}.draft-option.ban-mode{border-left-color:#a94b66;background:#26151c}.draft-option.ban-mode:hover{background:#3a1b27}.draft-turn-chip.opp{background:#3d354b;color:#d9c9ff;border-color:#675786}.draft-turn-chip.ban{background:#4b2936;color:#ffc1d0;border-color:#8f4d62}.draft-turn-chip.complete{background:#203f32;color:#aaf3bf;border-color:#4c8767}.draft-network-note{color:#a8b9d1}
+
+/* Stage 25L — synchronized replay speed, network wait feedback */
+.opponent-wait{position:absolute;z-index:40;left:50%;top:18px;transform:translateX(-50%);display:flex;align-items:center;gap:10px;min-width:310px;max-width:72%;padding:9px 13px;border:1px solid #8d76c7;border-radius:7px;background:#120f1eea;box-shadow:0 8px 24px #0009,0 0 18px #7f5fc744;color:#eee7ff;pointer-events:none}
+.opponent-wait strong{display:block;font-size:12px;letter-spacing:.8px;color:#d8c8ff}.opponent-wait small{display:block;margin-top:2px;font-size:9px;line-height:1.35;color:#a998cc}
+.opponent-wait-pulse{width:11px;height:11px;flex:0 0 11px;border-radius:50%;background:#b56cff;border:1px solid #eadfff;box-shadow:0 0 9px #b56cff;animation:opponentWaitPulse 1s ease-in-out infinite alternate}
+@keyframes opponentWaitPulse{from{opacity:.42;transform:scale(.78)}to{opacity:1;transform:scale(1.16)}}
+.network-replay-config{margin:7px 0;padding-top:7px;border-top:1px solid #263d55}.network-replay-config>span{display:block;font-size:9px;font-weight:800;letter-spacing:.6px;color:#a8bad4}.network-replay-config>small{display:block;margin-top:4px;font-size:8px;color:#778da9}.network-replay-speed-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin-top:5px}.network-replay-speed-grid button{padding:6px 3px;font-size:9px;font-weight:800}.network-replay-speed-grid button.selected{background:#392f57;border-color:#9b83d3;color:#eee6ff;outline:1px solid #836bb8}

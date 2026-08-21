@@ -61,10 +61,10 @@ test('Stage25B CoordinatorSocket sends host-selected room format and draft-ban c
     const sent=[];
     const socket=new CoordinatorSocket('ws://example/ws');
     socket.ws={readyState:1,send:value=>sent.push(JSON.parse(value))};
-    socket.createRoom({id:'TESTROOM',teamSize:5,draftBansPerPlayer:1});
-    socket.updateRoomConfig({teamSize:4,draftBansPerPlayer:0});
-    assert.deepEqual(sent[0],{kind:'create_room',id:'TESTROOM',teamSize:5,draftBansPerPlayer:1});
-    assert.deepEqual(sent[1],{kind:'update_room_config',teamSize:4,draftBansPerPlayer:0});
+    socket.createRoom({id:'TESTROOM',teamSize:5,draftBansPerPlayer:1,replaySpeed:.5});
+    socket.updateRoomConfig({teamSize:4,draftBansPerPlayer:0,replaySpeed:.25});
+    assert.deepEqual(sent[0],{kind:'create_room',id:'TESTROOM',teamSize:5,draftBansPerPlayer:1,replaySpeed:.5});
+    assert.deepEqual(sent[1],{kind:'update_room_config',teamSize:4,draftBansPerPlayer:0,replaySpeed:.25});
   }finally{globalThis.WebSocket=old;}
 });
 
@@ -82,6 +82,8 @@ test('Stage25B relay advertises format and bans, lets only host edit waiting con
   const server=readFileSync(new URL('../server/relay-server.cjs',import.meta.url),'utf8');
   assert.match(server,/format:\s*`\$\{teamSize\}v\$\{teamSize\}`/);
   assert.match(server,/draftBansPerPlayer/);
+  assert.match(server,/replaySpeed/);
+  assert.match(server,/INVALID_REPLAY_SPEED/);
   assert.match(server,/ONLY_HOST_MAY_CONFIGURE/);
   assert.match(server,/ROOM_CONFIG_LOCKED/);
   assert.match(server,/if \(room\.matchRoom\.isReady\(\)\) room\.configLocked = true/);

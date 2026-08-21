@@ -12,13 +12,13 @@
   <header class="topbar">
     <div class="brand">
       <h1>REALM OF SHINOBI 2.0</h1>
-      <small>Stage 25C — Network Draft</small>
+      <small>ROS2 Alpha — Multiplayer Playtest</small>
     </div>
     <div class="round-strip">
       <div class="round-id"><span>ROUND</span> <strong id="roundNo">1</strong></div>
       <span class="round-separator">—</span>
       <div id="timer">02:00</div>
-      <button id="replaySpeedButton" title="Local visual replay speed only">REPLAY 0.25×</button>
+      <button id="replaySpeedButton" title="Replay speed">REPLAY 0.33×</button>
       <button id="timeControlButton">PAUSE</button>
       <div id="connection"></div>
     </div>
@@ -34,6 +34,10 @@
     <section class="battle-column">
       <section id="gameWrap">
         <div id="game"></div>
+        <div id="opponentWaitIndicator" class="opponent-wait hidden" role="status" aria-live="polite">
+          <span class="opponent-wait-pulse"></span>
+          <div><strong>WAITING FOR OPPONENT…</strong><small>Your replay is complete. The next round will open when the other player finishes theirs.</small></div>
+        </div>
         <div id="statusLine">Choose a champion.</div>
       </section>
       <section class="panel combat-log-panel" id="logPanel">
@@ -66,14 +70,21 @@
       </div>
 
       <div class="panel network hidden" id="networkPanel">
-        <div class="panel-heading"><h3>2P Battle Lobby</h3><span id="lobbyConnectionBadge" class="lobby-badge">OFFLINE</span></div>
-        <label class="network-label" for="wsUrl">Coordinator</label>
-        <div class="network-connect-row"><input id="wsUrl" value="ws://localhost:3000/ws"><button id="connectBtn">CONNECT</button></div>
+        <div class="panel-heading"><h3>2P Battle Lobby</h3><span id="lobbyConnectionBadge" class="lobby-badge">CONNECTING…</span></div>
 
         <div class="lobby-config-block" id="hostConfigBlock">
           <div class="lobby-config-title"><strong>HOST MATCH CONFIG</strong><span id="lobbyConfigLockText">Choose before creating a room.</span></div>
           <div class="network-team-size-grid">
             <button type="button" data-network-team-size="1">1v1</button><button type="button" data-network-team-size="2">2v2</button><button type="button" data-network-team-size="3" class="selected">3v3</button><button type="button" data-network-team-size="4">4v4</button><button type="button" data-network-team-size="5">5v5</button>
+          </div>
+          <div class="network-replay-config">
+            <span>HOST REPLAY SPEED</span>
+            <div class="network-replay-speed-grid">
+              <button type="button" data-network-replay-speed="0.25">0.25×</button>
+              <button type="button" data-network-replay-speed="0.33" class="selected">0.33×</button>
+              <button type="button" data-network-replay-speed="0.5">0.50×</button>
+            </div>
+            <small>Locked for both players when Player 2 joins.</small>
           </div>
           <label class="ban-option"><input type="checkbox" id="draftBanToggle"> Enable <strong>1 draft ban per player</strong></label>
         </div>
@@ -84,8 +95,8 @@
         <div id="currentRoomCard" class="current-room-card hidden"></div>
 
         <div class="room-browser-head"><strong>OPEN ROOMS</strong><span id="roomCount">0</span></div>
-        <div id="roomList" class="room-list"><div class="room-empty">Connect to view rooms.</div></div>
-        <div id="lobbyStatus" class="lobby-status">Connect to the coordinator, then create or join a room.</div>
+        <div id="roomList" class="room-list"><div class="room-empty">Connecting to multiplayer coordinator…</div></div>
+        <div id="lobbyStatus" class="lobby-status">Connecting automatically to the ROS2 multiplayer coordinator…</div>
       </div>
     </aside>
   </main>

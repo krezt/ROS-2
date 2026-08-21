@@ -33,11 +33,11 @@ export class CoordinatorSocket {
     if(!this.ws||this.ws.readyState!==WebSocket.OPEN)throw new Error('Socket not connected');
     this.ws.send(JSON.stringify({kind,...payload}));
   }
-  createRoom({id,teamSize=3,draftBansPerPlayer=0}={}){
-    this.send('create_room',{...(id?{id}:{}),teamSize,draftBansPerPlayer});
+  createRoom({id,teamSize=3,draftBansPerPlayer=0,replaySpeed=null}={}){
+    this.send('create_room',{...(id?{id}:{}),teamSize,draftBansPerPlayer,...(Number.isFinite(replaySpeed)?{replaySpeed}:{})});
   }
   joinRoom(id){this.send('join_room',{id});}
-  updateRoomConfig({teamSize,draftBansPerPlayer}){this.send('update_room_config',{teamSize,draftBansPerPlayer});}
+  updateRoomConfig({teamSize,draftBansPerPlayer,replaySpeed=null}){this.send('update_room_config',{teamSize,draftBansPerPlayer,...(Number.isFinite(replaySpeed)?{replaySpeed}:{})});}
   listRooms(){this.send('list_rooms');}
   submitDraftBan(archetype){this.send('draft_ban',{archetype});}
   submitDraftPick(archetype){this.send('draft_pick',{archetype});}

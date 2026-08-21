@@ -233,20 +233,29 @@ function simultaneousFeedbackCommand(groupEvents) {
   });
 }
 
+function presentationGroupKey(event){
+  const explicit=event.payload?.simultaneousGroup;
+  if(explicit&&(event.type===EVENT_TYPE.DAMAGE||event.type===EVENT_TYPE.HEAL))return `EXPLICIT:${explicit}`;
+  if(event.type===EVENT_TYPE.STATUS_APPLY&&String(event.payload?.key??'').toLowerCase()==='poison'&&String(event.payload?.abilityId??'').toUpperCase()==='PLAGUE'){
+    return `PLAGUE_POISON:${event.parentEventId??'ROOT'}:${event.initiativeCycle}`;
+  }
+  if(event.type===EVENT_TYPE.DAMAGE&&String(event.payload?.damageType??'').toUpperCase()==='POISON'&&String(event.payload?.source??'').toUpperCase()==='STATUS_TICK'){
+    return `POISON_TICK:${event.initiativeCycle}`;
+  }
+  return null;
+}
+
 export function buildPresentationTimeline(events) {
   validateAuthoritativeEventStream(events);
   const grouped=new Map();
   for(const event of events){
-    const group=event.payload?.simultaneousGroup;
-    if(group && (event.type===EVENT_TYPE.DAMAGE||event.type===EVENT_TYPE.HEAL)){
-      if(!grouped.has(group))grouped.set(group,[]);
-      grouped.get(group).push(event);
-    }
+    const group=presentationGroupKey(event);
+    if(group){if(!grouped.has(group))grouped.set(group,[]);grouped.get(group).push(event);}
   }
   const emittedGroups=new Set(),commands=[];
   for(const event of events){
-    const group=event.payload?.simultaneousGroup;
-    if(group && (event.type===EVENT_TYPE.DAMAGE||event.type===EVENT_TYPE.HEAL)){
+    const group=presentationGroupKey(event);
+    if(group){
       if(emittedGroups.has(group))continue;
       emittedGroups.add(group);
       const members=grouped.get(group)??[event];
