@@ -87,7 +87,7 @@ test('Volley is buffed by 20% to a 132–240 physical 5x5 AoE',()=>{
 });
 
 test('all champion max HP values reflect the later Stage 23.20 survivability pass',()=>{
-  const expected={Warrior:1726,Barbarian:1597,Rogue:1300,Cleric:1384,Mage:1300,Paladin:1427,Archer:1300,Monk:1214,Necromancer:1300,Mystic:1171,Shinobi:1258,Electromancer:1214};
+  const expected={Warrior:2126,Barbarian:1997,Rogue:1700,Cleric:1784,Mage:1700,Paladin:1827,Archer:1700,Monk:1614,Necromancer:1700,Mystic:1571,Shinobi:1658,Electromancer:1614};
   for(const [id,hp] of Object.entries(expected))assert.equal(getArchetype(id).stats.maxHP,hp,id);
 });
 

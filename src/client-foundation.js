@@ -66,7 +66,7 @@ const NEGATIVE_STATUS_KEYS=new Set(['poison','bleed','stun','silence','taunt','b
 export const CONTROL_IMPAIRING_STATUS_KEYS=Object.freeze(['stun','silence','taunt','berserk','root','suppression','spellbreak']);
 const CONTROL_IMPAIRING_STATUS_SET=new Set(CONTROL_IMPAIRING_STATUS_KEYS);
 const HARD_CONTROL_STATUS_SET=new Set(['stun','silence','taunt','berserk','root','suppression','spellbreak']);
-const IMPORTANT_FLOAT_STATUS_KEYS=new Set(['poison','bleed',...CONTROL_IMPAIRING_STATUS_KEYS]);
+const IMPORTANT_FLOAT_STATUS_KEYS=new Set(['poison','bleed','blind',...CONTROL_IMPAIRING_STATUS_KEYS]);
 
 export function hasControlImpairment(unit){
   return Boolean(unit?.lifeState===LIFE_STATE.ALIVE && (unit.statuses??[]).some(s=>CONTROL_IMPAIRING_STATUS_SET.has(String(s.key??'').toLowerCase())));

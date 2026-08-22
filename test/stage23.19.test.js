@@ -58,9 +58,9 @@ test('Warhorn is a 2-cycle team buff granting +1 SW and +2 Movement for 4 rounds
   assert.equal(sim.state.units.H1.resources.attacksMax,7);assert.equal(sim.state.units.H1.resources.movementMax,15);
 });
 
-test('Power Strike uses SW -2: 5 normally, 6 under Warhorn',()=>{
-  const base=pair('Warrior','Barbarian',{row:5,col:4},{row:5,col:6});let sim=createRoundSimulation({state:base,declarations:[decl('Warrior','POWER_STRIKE'),hold('G0')],seed:6});createRosterCombatScheduler(sim,{countersEnabled:false});assert.equal(sim.state.units.H0.resources.attacksRemaining,5);
-  const buffed=pair('Warrior','Barbarian',{row:5,col:4},{row:5,col:6});buffed.units.H0.resources.attacksMax=8;buffed.units.H0.resources.attacksRemaining=8;sim=createRoundSimulation({state:buffed,declarations:[decl('Warrior','POWER_STRIKE'),hold('G0')],seed:7});createRosterCombatScheduler(sim,{countersEnabled:false});assert.equal(sim.state.units.H0.resources.attacksRemaining,6);
+test('Power Strikes uses the normal Warrior attack pool: 7 baseline and 8 under Warhorn',()=>{
+  const base=pair('Warrior','Barbarian',{row:5,col:4},{row:5,col:6});let sim=createRoundSimulation({state:base,declarations:[decl('Warrior','POWER_STRIKE'),hold('G0')],seed:6});createRosterCombatScheduler(sim,{countersEnabled:false});assert.equal(sim.state.units.H0.resources.attacksRemaining,7);
+  const buffed=pair('Warrior','Barbarian',{row:5,col:4},{row:5,col:6});buffed.units.H0.resources.attacksMax=8;buffed.units.H0.resources.attacksRemaining=8;sim=createRoundSimulation({state:buffed,declarations:[decl('Warrior','POWER_STRIKE'),hold('G0')],seed:7});createRosterCombatScheduler(sim,{countersEnabled:false});assert.equal(sim.state.units.H0.resources.attacksRemaining,8);
 });
 
 test('Spellbreak has 80% application chance and interrupts an already-charging Plague when it lands',()=>{

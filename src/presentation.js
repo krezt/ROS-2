@@ -242,6 +242,15 @@ function presentationGroupKey(event){
   if(event.type===EVENT_TYPE.DAMAGE&&String(event.payload?.damageType??'').toUpperCase()==='POISON'&&String(event.payload?.source??'').toUpperCase()==='STATUS_TICK'){
     return `POISON_TICK:${event.initiativeCycle}`;
   }
+  if(event.type===EVENT_TYPE.STATUS_APPLY&&String(event.payload?.key??'').toLowerCase()==='blind'){
+    return `BLIND_APPLY:${event.parentEventId??'ROOT'}:${event.initiativeCycle}`;
+  }
+  if(event.type===EVENT_TYPE.BLOCK&&String(event.payload?.reason??'').toUpperCase()==='STATUS_RESIST'){
+    return `STATUS_RESIST:${event.parentEventId??'ROOT'}:${event.initiativeCycle}`;
+  }
+  if(event.type===EVENT_TYPE.BLOCK&&String(event.payload?.reason??'').toUpperCase()==='WARD'&&String(event.payload?.abilityId??'').toUpperCase()==='PLAGUE'){
+    return `PLAGUE_WARD_BLOCK:${event.parentEventId??'ROOT'}:${event.initiativeCycle}`;
+  }
   return null;
 }
 

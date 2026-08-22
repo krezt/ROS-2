@@ -63,7 +63,7 @@ test('Stage25B CoordinatorSocket sends host-selected room format and draft-ban c
     socket.ws={readyState:1,send:value=>sent.push(JSON.parse(value))};
     socket.createRoom({id:'TESTROOM',teamSize:5,draftBansPerPlayer:1,replaySpeed:.5});
     socket.updateRoomConfig({teamSize:4,draftBansPerPlayer:0,replaySpeed:.25});
-    assert.deepEqual(sent[0],{kind:'create_room',id:'TESTROOM',teamSize:5,draftBansPerPlayer:1,replaySpeed:.5});
+    assert.deepEqual(sent[0],{kind:'create_room',id:'TESTROOM',teamSize:5,draftBansPerPlayer:1,playerName:'Player',replaySpeed:.5});
     assert.deepEqual(sent[1],{kind:'update_room_config',teamSize:4,draftBansPerPlayer:0,replaySpeed:.25});
   }finally{globalThis.WebSocket=old;}
 });

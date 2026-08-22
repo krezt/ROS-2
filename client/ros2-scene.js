@@ -718,6 +718,7 @@ export class RosBattleScene extends Phaser.Scene {
       const pseudo={actorId:entry.actorId,targetId:entry.targetId,payload:{eventType:entry.type,...entry.payload}};
       if(entry.type==='DAMAGE')return this.damageFeedback(pseudo);
       if(entry.type==='HEAL')return this.healFeedback(pseudo);
+      if(entry.type==='BLOCK')return this.blockFeedback(pseudo);
       if(statusTypes.has(entry.type))return this.statusFeedback(pseudo);
       return Promise.resolve();
     }));
@@ -768,9 +769,13 @@ export class RosBattleScene extends Phaser.Scene {
     // Bleed refreshes may arrive repeatedly in one attack sequence; keep those quiet. Poison contributions stay visible so every poison ability communicates the amount added.
     if(command.payload?.eventType==='STATUS_APPLY'&&wasPresent&&rawKey==='bleed')return;
     const control=new Set(['stun','silence','taunt','berserk','root','suppression','spellbreak']);
-    const color=raw==='poison'?'#2f8f46':(raw==='bleed'?'#ff5f68':(control.has(raw)?'#c08cff':'#f2e8d5'));
-    if(!ending&&raw==='poison'&&source?.unit?.archetypeId==='Necromancer'&&targetView&&ability==='PLAGUE_DETONATION'){
-      this.pulseImageFx('vfx-necro-cloud',targetView.container.x,targetView.container.y-22,{scale:.34,duration:440,alpha:.96,scaleTo:.44,depth:12});
+    const color=raw==='poison'?'#2f8f46':(raw==='bleed'?'#ff5f68':(raw==='blind'?'#ff8e96':(control.has(raw)?'#c08cff':'#f2e8d5')));
+    const plagueDetonationReseed=!ending&&raw==='poison'&&source?.unit?.archetypeId==='Necromancer'&&targetView&&ability==='PLAGUE_DETONATION'&&command.payload?.eventType==='STATUS_APPLY';
+    if(plagueDetonationReseed){
+      // Keep Plague Detonation readable as two distinct beats: first consume/detonate all existing Poison,
+      // then pause briefly before the reseeded Poison appears on its randomly selected survivor.
+      await new Promise(resolve=>this.time.delayedCall(this.replayDuration(180),resolve));
+      this.pulseImageFx('vfx-necro-cloud',targetView.container.x,targetView.container.y-22,{scale:.34,duration:440,alpha:.98,scaleTo:.44,depth:13});
     }
     if(!ending&&raw==='stun'&&source?.unit?.archetypeId==='Mage'&&ability==='MAGE_ATTACK'&&targetView){
       this.pulseImageFx('vfx-mage-proc',targetView.container.x,targetView.container.y-22,{scale:.34,duration:440,alpha:.96,scaleTo:.44});
@@ -793,10 +798,12 @@ export class RosBattleScene extends Phaser.Scene {
       const poisonContribution=raw==='poison'&&command.payload?.eventType==='STATUS_APPLY'?Number(command.payload?.contribution?.amount):NaN;
       if(Number.isFinite(poisonContribution)&&poisonContribution>0){
         await Promise.all([
-          this.floatText(id,'POISON',color,{yOffset:-10}),
-          this.floatText(id,`-${Math.floor(poisonContribution)}`,color,{yOffset:8})
+          this.floatText(id,'POISON',color,{yOffset:-12,duration:360}),
+          this.floatText(id,`-${Math.floor(poisonContribution)}`,color,{yOffset:10,duration:360})
         ]);
-      }else await this.floatText(id,ending?`${key} END`:key,color);
+        return;
+      }
+      await this.floatText(id,ending?`${key} END`:key,color);
     }
   }
 
@@ -1292,7 +1299,7 @@ export class RosBattleScene extends Phaser.Scene {
       [PRESENTATION_COMMAND.STATUS_FEEDBACK]:run(c=>this.statusFeedback(c)),
       [PRESENTATION_COMMAND.MISS_FEEDBACK]:run(c=>this.floatText(c.targetId??c.actorId,'MISS','#c8d4e5')),
       [PRESENTATION_COMMAND.DODGE_FEEDBACK]:run(c=>this.floatText(c.targetId,'DODGE','#b9e7ff')),
-      [PRESENTATION_COMMAND.BLOCK_FEEDBACK]:run(c=>this.floatText(c.targetId,'BLOCK','#b9e7ff')),
+      [PRESENTATION_COMMAND.BLOCK_FEEDBACK]:run(c=>this.blockFeedback(c)),
       [PRESENTATION_COMMAND.KO_FEEDBACK]:run(c=>this.koUnit(c.targetId)),
       [PRESENTATION_COMMAND.RESURRECT_FEEDBACK]:run(c=>this.resurrectUnit(c.targetId,c.payload)),
       [PRESENTATION_COMMAND.CRIT_FEEDBACK]:run(c=>this.floatText(c.targetId,'CRIT!','#ffe36d')),
@@ -1367,11 +1374,8 @@ export class RosBattleScene extends Phaser.Scene {
     const tween=this.tweens.add({targets:[ring,spark],alpha:{from:.35,to:.9},scaleX:{from:.82,to:1.18},scaleY:{from:.82,to:1.18},duration:this.replayDuration(280),yoyo:true,repeat:-1});
     const actionId=command.payload?.actionId??this.lastActionByActor.get(command.actorId)??null;
     this.chargeFxByActor.set(command.actorId,{ring,spark,tween,actionId});
-    if(v.animated&&v.sprite){
-      const manifest=CHAMPION_ANIMATION_MANIFESTS[v.unit.archetypeId];
-      const frame=manifest?.clips?.[v.facing]?.cast?.[0];
-      if(Number.isInteger(frame)){v.sprite.stop();v.sprite.setFrame(frame);this.time.delayedCall(this.replayDuration(90),()=>this.playIdle(v));}
-    }
+    // Do not play or force a champion cast frame when declarations are announced.
+    // The subtle charge ring/spark remains, while the actual cast animation is reserved for resolution.
     return new Promise(resolve=>this.time.delayedCall(this.replayDuration(85),resolve));
   }
 
@@ -1844,6 +1848,12 @@ export class RosBattleScene extends Phaser.Scene {
   updateLiveHp(id,hpAfter){
     const v=this.unitViews.get(id);if(!v||!Number.isFinite(hpAfter))return;
     v.unit.stats.hp=Math.max(0,hpAfter);v.hp.width=44*Math.max(0,v.unit.stats.hp/v.unit.stats.maxHP);if(this.inspectedUnitId===id)this.renderSelectedUnit();
+  }
+
+  blockFeedback(command){
+    const reason=String(command.payload?.reason??'').toUpperCase();
+    const resisted=reason==='STATUS_RESIST';
+    return this.floatText(command.targetId??command.actorId,resisted?'RESIST':'BLOCK',resisted?'#e0b8ff':'#b9e7ff');
   }
 
   async damageFeedback(command){

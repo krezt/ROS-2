@@ -50,13 +50,13 @@ function run(state, declarations, seed=0x20a, countersEnabled=false) {
 function noDodge(target){target.stats.QKN=-1000;target.stats.DEF=0;}
 
 // --- New multi-swing attack styles -------------------------------------------------
-test('Warrior Power Strike is a half-movement style using SW -2 swings at +65% damage',()=>{
+test('Warrior Power Strikes is a half-movement style using the normal seven-swing pool at +65% damage',()=>{
   const state=pair('Warrior','Barbarian'); noDodge(state.units.G0);
   state.units.H0.weapon.attackBaseMin=100; state.units.H0.weapon.attackBaseMax=100; state.units.H0.stats.CRIT=0; state.units.H0.weapon.critBonus=0;
   const sim=createRoundSimulation({state,declarations:[decl('Warrior','POWER_STRIKE'),hold('G0')],seed:1});
   createRosterCombatScheduler(sim,{countersEnabled:false});
   assert.equal(sim.state.units.H0.resources.movementRemaining,7);
-  assert.equal(sim.state.units.H0.resources.attacksRemaining,5);
+  assert.equal(sim.state.units.H0.resources.attacksRemaining,7);
   sim.state.units.H0.resources.attacksRemaining=1;
   const before=sim.state.units.G0.stats.hp;
   const hit=resolveBasicAttack(sim,'H0','G0',{cycle:0,ignoreAttackInterval:true});

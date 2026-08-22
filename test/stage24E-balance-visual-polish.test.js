@@ -19,7 +19,7 @@ function declaration(archetypeId,abilityId,actorId,target,roundNumber=1){
   return createRosterAbilityDeclaration({declarationId:`D:${roundNumber}:${actorId}`,roundNumber,actorId,archetypeId,abilityId,target});
 }
 
-const EXPECTED_HP={Warrior:1726,Barbarian:1597,Rogue:1300,Cleric:1384,Mage:1300,Paladin:1427,Archer:1300,Monk:1214,Necromancer:1300,Mystic:1171,Shinobi:1258,Electromancer:1214};
+const EXPECTED_HP={Warrior:2126,Barbarian:1997,Rogue:1700,Cleric:1784,Mage:1700,Paladin:1827,Archer:1700,Monk:1614,Necromancer:1700,Mystic:1571,Shinobi:1658,Electromancer:1614};
 
 test('system-wide HP, ARM/RES and requested movement baselines match the polish pass',()=>{
   for(const [id,hp] of Object.entries(EXPECTED_HP)){
@@ -45,7 +45,8 @@ test('requested ability tuning is authoritative in roster data',()=>{
   assert.deepEqual([plague.effects[0].min,plague.effects[0].max],[100,160]);
 
   assert.equal(getAbility('Barbarian','REND').basicStyle.attacksSet,4);
-  assert.equal(getAbility('Warrior','POWER_STRIKE').basicStyle.attacksDelta,-2);
+  assert.equal(getAbility('Warrior','POWER_STRIKE').basicStyle.attacksDelta,undefined);
+  assert.equal(getAbility('Warrior','POWER_STRIKE').label,'Power Strikes');
 
   const focus=getAbility('Archer','RANGERS_FOCUS').effects.find(e=>e.type==='HEAL');
   assert.deepEqual([focus.min,focus.max],[50,100]);
@@ -57,7 +58,7 @@ test('requested ability tuning is authoritative in roster data',()=>{
   assert.equal(getAbility('Cleric','ENIDS_BLESSING').completionDelayCycles,7);
   const light=getAbility('Cleric','PIERCING_LIGHT');
   assert.equal(light.completionDelayCycles,3);
-  assert.equal(light.area.shape,'SQUARE_5X5');
+  assert.equal(light.area.shape,'SQUARE_7X7');
   assert.deepEqual([light.effects.find(e=>e.type==='AOE_DAMAGE').min,light.effects.find(e=>e.type==='AOE_DAMAGE').max],[150,250]);
   assert.equal(getAbility('Mage','FIREBALL').area.shape,'SQUARE_5X5');
   assert.equal(getAbility('Mystic','MENTAL_BREAKDOWN').completionDelayCycles,2);
@@ -84,18 +85,18 @@ test('Life Drain heals Necromancer for exactly the actual damage dealt',()=>{
   assert.equal(sim.state.units.H0.stats.hp-before,damage.payload.amount);
 });
 
-test('Power Strike now executes SW -2 rather than collapsing to a single attack',()=>{
+test('Power Strikes now executes the normal seven-swing Warrior attack pool',()=>{
   const warrior=unit('Warrior','H0',SIDE.A,{row:5,col:5});
   const target=unit('Barbarian','G0',SIDE.B,{row:5,col:6});
   warrior.stats.CRIT=0;warrior.weapon.attackBaseMin=warrior.weapon.attackBaseMax=100;
   target.stats.hp=target.stats.maxHP=99999;target.stats.DEF=0;target.stats.QKN=-1000;
   const sim=createRoundSimulation({
-    state:createBattleState({matchId:'POWER-STRIKE-SW-MINUS-2',units:[warrior,target]}),
+    state:createBattleState({matchId:'POWER-STRIKES-SEVEN',units:[warrior,target]}),
     declarations:[declaration('Warrior','POWER_STRIKE','H0',{type:TARGET_TYPE.UNIT,unitId:'G0'}),hold('G0')],seed:1
   });
   createRosterCombatScheduler(sim,{countersEnabled:false}).runUntilCombatSettled({maxCycles:100});
   const hits=sim.events.snapshot().filter(e=>e.type===EVENT_TYPE.DAMAGE&&e.actorId==='H0'&&e.payload?.abilityId==='POWER_STRIKE');
-  assert.equal(hits.length,5);
+  assert.equal(hits.length,7);
   assert.equal(sim.state.units.H0.resources.attacksRemaining,0);
 });
 
@@ -151,7 +152,7 @@ test('ability detail models and notes expose the new timing, damage, heal and fo
   const detail=(id,abilityId)=>abilityDetailModel(actor(id),getAbility(id,abilityId));
   assert.equal(detail('Cleric','DEFENSIVE_AURA').timing,'2 cycles');
   assert.equal(detail('Cleric','ENIDS_BLESSING').timing,'7 cycles');
-  const light=detail('Cleric','PIERCING_LIGHT');assert.equal(light.timing,'3 cycles');assert.ok(light.lines.includes('Area: SQUARE 5X5'));
+  const light=detail('Cleric','PIERCING_LIGHT');assert.equal(light.timing,'3 cycles');assert.ok(light.lines.includes('Area: SQUARE 7X7'));
   assert.ok(detail('Mage','FIREBALL').lines.includes('Area: SQUARE 5X5'));
   assert.equal(detail('Mystic','MENTAL_BREAKDOWN').timing,'2 cycles');
   assert.equal(detail('Archer','HUNTERS_MARK').timing,'4 cycles');

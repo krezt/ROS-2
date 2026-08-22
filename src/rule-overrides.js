@@ -6,6 +6,8 @@ import { getAbility, getArchetype } from './roster.js';
 import { applyControlEffect, CONTROL_TYPE } from './controls.js';
 import { effectiveStat, incomingDamageMultiplier } from './modifiers.js';
 
+const RESISTIBLE_STYLE_STATUS = new Set(['stun','silence','taunt','berserk','root','suppression','spellbreak','blind']);
+
 
 function syncEventSequence(simulation) {
   simulation.state.round.eventSequence = simulation.events.length;
@@ -479,9 +481,15 @@ export function applyBasicHitOverrides(simulation, {
   }
   if (style?.onHit?.statusKey && !style?.onHit?.defenseShredPct) {
     const chance = style.onHit.chance ?? 1;
-    if (chance >= 1 || simulation.rng.chance(chance, `STYLE_PROC:${style.onHit.statusKey}:${actorId}->${targetId}`)) {
+    const landed = chance >= 1 || simulation.rng.chance(chance, `STYLE_PROC:${style.onHit.statusKey}:${actorId}->${targetId}`);
+    if (landed) {
       emitStatusApply(simulation, actorId, targetId, style.onHit.statusKey, style.onHit.duration ?? 1, style.onHit.data ?? {}, parentEventId, cycle);
       applied.push(style.onHit.statusKey);
+    } else if (RESISTIBLE_STYLE_STATUS.has(String(style.onHit.statusKey).toLowerCase())) {
+      emitRuleEvent(simulation, EVENT_TYPE.BLOCK, {
+        initiativeCycle: cycle, actorId: targetId, targetId, parentEventId,
+        payload: { reason:'STATUS_RESIST', blockedStatusKey:String(style.onHit.statusKey).toLowerCase(), hostileSourceId:actorId }
+      });
     }
   }
 

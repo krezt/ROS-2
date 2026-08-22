@@ -10,6 +10,7 @@ import { blindWhiffChance, consumePhysicalAttackBreakingInvisibility, effectiveC
 import { summonFaery } from './summons.js';
 
 const CONTROL = new Set(['stun','silence','taunt','berserk']);
+const RESISTIBLE_CONTROL = new Set(['stun','silence','taunt','berserk','root','suppression','spellbreak','blind']);
 const NEGATIVE = new Set(['stun','silence','taunt','berserk','root','suppression','spellbreak','poison','bleed','def_down','rend_def_down','atk_down','sdm_down','marked','blind']);
 const BENEFICIAL = new Set(['atk_up','sdm_up','def_up','guard','magic_shield','divine_shield','physical_shield','shield_redirect','shinobi_haste','invisible','premonition','arcane_echo','regen','shift','bloodlust','counterstance','flurry_style','poison_imbue','bleed_imbue','shadowstep_crit','ward','unstoppable','detection','warhorn_attacks_up','warhorn_movement_up']);
 function sync(sim){sim.state.round.eventSequence=sim.events.length;}
@@ -64,8 +65,13 @@ function healTarget(sim,actor,target,spec,cycle,parentEventId,label){
  const before=target.stats.hp;const blockedByBleed=Boolean(findStatus(target,'bleed'));if(!blockedByBleed)target.stats.hp=Math.min(target.stats.maxHP,before+amount);const healed=target.stats.hp-before;emit(sim,EVENT_TYPE.HEAL,{initiativeCycle:cycle,actorId:actor.unitId,targetId:target.unitId,parentEventId,payload:{amount:healed,hpBefore:before,hpAfter:target.stats.hp,source:'ABILITY',abilityId:label,blockedByBleed,...(spec.simultaneousGroup?{simultaneousGroup:spec.simultaneousGroup}:{})}});return healed;
 }
 function applyStatus(sim,actor,target,effect,cycle,parentEventId){
- if(!target||target.lifeState!==LIFE_STATE.ALIVE)return false; const chance=effect.chance??1;if(chance<1&&!sim.rng.chance(chance,`STATUS_CHANCE:${effect.key}:${actor.unitId}->${target.unitId}`)){if(effect.data?.announceResist){emit(sim,EVENT_TYPE.BLOCK,{initiativeCycle:cycle,actorId:target.unitId,targetId:target.unitId,parentEventId,payload:{reason:'STATUS_RESIST',blockedStatusKey:statusKey(effect.key),hostileSourceId:actor.unitId}});}return false;}
- const key=statusKey(effect.key); if(CONTROL.has(key)){applyControlEffect(sim,target.unitId,{type:key.toUpperCase(),sourceId:actor.unitId,duration:effect.duration,cycle,parentEventId});return true;}
+ if(!target||target.lifeState!==LIFE_STATE.ALIVE)return false;
+ const key=statusKey(effect.key),chance=effect.chance??1;
+ if(chance<1&&!sim.rng.chance(chance,`STATUS_CHANCE:${effect.key}:${actor.unitId}->${target.unitId}`)){
+  if(effect.data?.announceResist||RESISTIBLE_CONTROL.has(key))emit(sim,EVENT_TYPE.BLOCK,{initiativeCycle:cycle,actorId:target.unitId,targetId:target.unitId,parentEventId,payload:{reason:'STATUS_RESIST',blockedStatusKey:key,hostileSourceId:actor.unitId}});
+  return false;
+ }
+ if(CONTROL.has(key)){applyControlEffect(sim,target.unitId,{type:key.toUpperCase(),sourceId:actor.unitId,duration:effect.duration,cycle,parentEventId});return true;}
  if(effect.stackMode==='STACK'){const existing=findStatus(target,key);const stacks=Math.min(5,(existing?.data?.stacks??0)+1);return Boolean(applyTimedStatus(sim,target.unitId,{key,duration:effect.duration,sourceId:actor.unitId,data:{...(effect.data??{}),stacks},stack:STATUS_STACK.REFRESH,cycle,parentEventId}));}
  return Boolean(applyTimedStatus(sim,target.unitId,{key,duration:effect.duration,sourceId:actor.unitId,data:effect.data??{},stack:effect.stackMode==='MAX_DURATION'?STATUS_STACK.MAX_DURATION:STATUS_STACK.REFRESH,cycle,parentEventId}));
 }

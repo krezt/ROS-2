@@ -45,13 +45,14 @@ test('Fireball is a true-friendly-fire 5x5 AoE with 200-350 raw damage',()=>{
   assert.equal(cellsForArea({width:16,height:11},{shape:'SQUARE_5X5',center:{row:5,col:8}}).length,25);
 });
 
-test('Piercing Light is a 5x5 hostile AoE that removes Invisibility from enemies but does not damage allies',()=>{
+test('Piercing Light is a 7x7 hostile AoE that removes Invisibility from enemies but does not damage allies',()=>{
   const cleric=unit('Cleric','H0',SIDE.A,{row:5,col:2}), ally=unit('Warrior','H1',SIDE.A,{row:5,col:8}), enemy=unit('Rogue','G0',SIDE.B,{row:5,col:9});
   enemy.statuses.push({key:'invisible',duration:3,sourceId:'G0',data:{}});
   enemy.stats.DEF=0; enemy.stats.RES=0; ally.stats.RES=0;
   const beforeAlly=ally.stats.hp,beforeEnemy=enemy.stats.hp;
-  const sim=run(createBattleState({matchId:'PL-5X5',units:[cleric,ally,enemy]}),[decl('Cleric','PIERCING_LIGHT','H0',{type:TARGET_TYPE.GROUND,row:5,col:8}),hold('H1'),hold('G0')],9,false);
-  assert.equal(getAbility('Cleric','PIERCING_LIGHT').area.shape,'SQUARE_5X5');
+  const sim=run(createBattleState({matchId:'PL-7X7',units:[cleric,ally,enemy]}),[decl('Cleric','PIERCING_LIGHT','H0',{type:TARGET_TYPE.GROUND,row:5,col:8}),hold('H1'),hold('G0')],9,false);
+  assert.equal(getAbility('Cleric','PIERCING_LIGHT').area.shape,'SQUARE_7X7');
+  assert.equal(cellsForArea({width:16,height:11},{shape:'SQUARE_7X7',center:{row:5,col:8}}).length,49);
   assert.equal(sim.state.units.H1.stats.hp,beforeAlly);
   assert.ok(sim.state.units.G0.stats.hp<beforeEnemy);
   assert.equal(findStatus(sim.state.units.G0,'invisible'),null);

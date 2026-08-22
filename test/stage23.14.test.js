@@ -88,7 +88,7 @@ test('Mage owns the stun proc and Electromancer owns the stronger Lightning Bolt
   assert.equal(electro.type,'DAMAGE');
   assert.equal(electro.label,'Lightning Bolt');
   assert.equal(electro.roundChance,.80);
-  assert.deepEqual([electro.min,electro.max],[30,45]);
+  assert.deepEqual([electro.min,electro.max],[50,175]);
   assert.equal(electro.maxPerRound,3);
 });
 
@@ -97,5 +97,5 @@ test('Electromancer Lightning Bolt proc is impactful magical direct-stat damage'
   const event=sim.events.snapshot().find(e=>e.type===EVENT_TYPE.DAMAGE&&e.payload?.procLabel==='Lightning Bolt');
   assert.equal(event.payload.damageType,'MAGICAL');
   assert.equal(event.payload.proc,true);
-  assert.ok(event.payload.rawDamage>=30 && event.payload.rawDamage<=90); // may crit for 2x
+  assert.ok(event.payload.rawDamage>=50 && event.payload.rawDamage<=350); // may crit for 2x
 });

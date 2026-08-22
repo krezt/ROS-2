@@ -18,6 +18,6 @@ test('Stage 23.15 proc tuning emphasizes support/caster identities without uncap
   assert.equal(proc('Mage').key,'stun');
   assert.equal(proc('Monk').roundChance,.85);
   assert.deepEqual({chance:proc('Necromancer').roundChance,min:proc('Necromancer').min,max:proc('Necromancer').max}, {chance:.80,min:75,max:200});
-  assert.deepEqual({chance:proc('Electromancer').roundChance,min:proc('Electromancer').min,max:proc('Electromancer').max}, {chance:.80,min:30,max:45});
+  assert.deepEqual({chance:proc('Electromancer').roundChance,min:proc('Electromancer').min,max:proc('Electromancer').max}, {chance:.80,min:50,max:175});
   for(const id of ['Cleric','Mage','Monk','Mystic','Necromancer','Paladin','Electromancer']) assert.equal(proc(id).maxPerRound,3,id);
 });

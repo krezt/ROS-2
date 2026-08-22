@@ -11,9 +11,25 @@ new Phaser.Game({type:Phaser.AUTO,parent:'game',backgroundColor:'#080b10',scene:
 const q=id=>document.getElementById(id);
 const COORDINATOR_URL='wss://ros2-coordinator.onrender.com/ws';
 let socket=null,reconnectTimer=null;
+let activeLogTab='combat',chatUnread=0;
+const PLAYER_NAME_STORAGE_KEY='ros2-player-name';
+function normalizePlayerName(value){return String(value??'').replace(/[<>&\u0000-\u001f\u007f]/g,'').replace(/\s+/g,' ').trim().slice(0,20)||'Player';}
+function currentPlayerName(){return normalizePlayerName(q('playerNameInput')?.value);}
+function savePlayerName(){
+  const name=currentPlayerName();q('playerNameInput').value=name;
+  try{localStorage.setItem(PLAYER_NAME_STORAGE_KEY,name);}catch{}
+  socket?.setPlayerName?.(name);
+  if(currentRoom){currentRoom.playerNames={...(currentRoom.playerNames??{}),[currentRoom.side]:name};renderCurrentRoom();}
+  return name;
+}
 const topModeButtons=()=>[...document.querySelectorAll('#modeButtons button')];
 function activateTopButton(button){for(const b of topModeButtons())b.classList.remove('active');button?.classList.add('active');}
 function showNetworkPanel(show){q('networkPanel')?.classList.toggle('hidden',!show);}
+
+try{q('playerNameInput').value=normalizePlayerName(localStorage.getItem(PLAYER_NAME_STORAGE_KEY)||'Player');}catch{q('playerNameInput').value='Player';}
+q('playerNameInput').addEventListener('change',savePlayerName);
+q('playerNameInput').addEventListener('blur',savePlayerName);
+q('playerNameInput').addEventListener('keydown',event=>{if(event.key==='Enter'){event.preventDefault();q('playerNameInput').blur();}});
 
 q('holdButton').onclick=()=>scene.holdSelected();
 q('submitButton').onclick=()=>scene.submitActions(false);
@@ -21,6 +37,47 @@ q('cancelTargetButton').onclick=()=>scene.cancelTargeting();
 q('timeControlButton').onclick=()=>scene.handleTimeControl();
 q('replaySpeedButton').onclick=()=>handleReplaySpeedButton();
 q('clearLogButton').onclick=()=>{q('combatLog').innerHTML='';};
+q('combatLogTabButton').onclick=()=>setLogChatTab('combat');
+q('chatTabButton').onclick=()=>setLogChatTab('chat');
+q('chatForm').addEventListener('submit',event=>{
+  event.preventDefault();
+  const input=q('chatInput'),text=input.value.trim();
+  if(!text||!currentRoom||!socket?.ws||socket.ws.readyState!==WebSocket.OPEN)return;
+  try{socket.sendChat(text);input.value='';input.focus();}catch{appendChatSystem('Chat send failed — coordinator is not connected.');}
+});
+
+function setLogChatTab(tab){
+  const wantsChat=tab==='chat'&&!q('chatTabButton').disabled;
+  activeLogTab=wantsChat?'chat':'combat';
+  q('combatLog').classList.toggle('hidden',activeLogTab!=='combat');
+  q('multiplayerChat').classList.toggle('hidden',activeLogTab!=='chat');
+  q('combatLogTabButton').classList.toggle('active',activeLogTab==='combat');
+  q('chatTabButton').classList.toggle('active',activeLogTab==='chat');
+  q('combatLogTabButton').setAttribute('aria-selected',String(activeLogTab==='combat'));
+  q('chatTabButton').setAttribute('aria-selected',String(activeLogTab==='chat'));
+  q('clearLogButton').classList.toggle('hidden',activeLogTab==='chat');
+  if(activeLogTab==='chat'){chatUnread=0;updateChatUnread();q('chatMessages').scrollTop=q('chatMessages').scrollHeight;q('chatInput')?.focus();}
+}
+function updateChatUnread(){
+  const badge=q('chatUnreadBadge'),tab=q('chatTabButton');
+  badge.textContent=String(chatUnread);badge.classList.toggle('hidden',chatUnread<=0);tab.classList.toggle('has-unread',chatUnread>0);
+}
+function setChatAvailable(available){
+  q('chatTabButton').disabled=!available;q('chatInput').disabled=!available;q('chatSendButton').disabled=!available;
+  if(!available&&activeLogTab==='chat')setLogChatTab('combat');
+}
+function clearChat(){q('chatMessages').innerHTML='';chatUnread=0;updateChatUnread();}
+function appendChatSystem(text){
+  const line=document.createElement('div');line.className='chat-system';line.textContent=text;q('chatMessages').appendChild(line);q('chatMessages').scrollTop=q('chatMessages').scrollHeight;
+}
+function appendChatMessage(msg){
+  if(!msg?.text)return;const own=msg.side===socket?.side,line=document.createElement('div');line.className=`chat-line ${own?'own':'opp'}`;
+  const fallback=msg.side===SIDE.A?'HOST':'PLAYER 2';const displayName=normalizePlayerName(msg.name??currentRoom?.playerNames?.[msg.side]??fallback);
+  const meta=document.createElement('span');meta.className='chat-meta';meta.textContent=own?`${displayName} (YOU)`:displayName;
+  const body=document.createElement('span');body.textContent=msg.text;line.append(meta,body);q('chatMessages').appendChild(line);q('chatMessages').scrollTop=q('chatMessages').scrollHeight;
+  if(!own&&activeLogTab!=='chat'){chatUnread=Math.min(99,chatUnread+1);updateChatUnread();}
+}
+setChatAvailable(false);
 
 q('sandboxButton').onclick=()=>{activateTopButton(q('sandboxButton'));showNetworkPanel(false);scene.startSandbox();};
 q('pvpButton').onclick=()=>{activateTopButton(q('pvpButton'));showNetworkPanel(true);scene.setMode('PVP');connectCoordinator();};
@@ -80,9 +137,10 @@ function renderCurrentRoom(){
   const cfg=currentRoom.config??networkConfig();
   const banText=cfg.draftBansPerPlayer===1?'1 ban per player':'No draft bans';
   const replayText=`Replay ${normalizeReplaySpeed(cfg.replaySpeed??0.33).toFixed(2)}×`;
-  card.classList.remove('hidden');
+  card.classList.remove('hidden');card.classList.toggle('waiting-room',!currentRoom.configLocked);
   const phase=currentRoom.draftPhase?` • ${currentRoom.draftPhase}`:'';
-  card.innerHTML=`<strong>ROOM ${currentRoom.id}</strong><br>${battleSizeLabel(cfg.teamSize)} • ${banText} • ${replayText} • Side ${currentRoom.side}${phase}<br><span class="${currentRoom.configLocked?'locked-copy':''}">${currentRoom.configLocked?'CONFIG LOCKED — BOTH PLAYERS READY':'WAITING FOR PLAYER 2'}</span>`;
+  const names=currentRoom.playerNames??{};const hostName=normalizePlayerName(names.A??(currentRoom.side===SIDE.A?currentPlayerName():'Host'));const p2Name=names.B?normalizePlayerName(names.B):'—';
+  card.innerHTML=`<strong>ROOM ${currentRoom.id}</strong><br>${battleSizeLabel(cfg.teamSize)} • ${banText} • ${replayText} • Side ${currentRoom.side}${phase}<br>Host: <strong>${hostName}</strong> • Player 2: <strong>${p2Name}</strong><br><span class="${currentRoom.configLocked?'locked-copy':''}">${currentRoom.configLocked?'CONFIG LOCKED — BOTH PLAYERS READY':'WAITING FOR PLAYER 2'}</span>`;
 }
 function renderRooms(rooms=advertisedRooms){
   advertisedRooms=Array.isArray(rooms)?rooms:[];
@@ -94,10 +152,11 @@ function renderRooms(rooms=advertisedRooms){
     const main=document.createElement('div');main.className='room-entry-main';
     const id=document.createElement('div');id.className='room-entry-id';id.textContent=room.id;
     const meta=document.createElement('div');meta.className='room-entry-meta';
-    meta.textContent=`${room.format??battleSizeLabel(room.teamSize??3)} • ${Number(room.draftBansPerPlayer)===1?'1 ban/player':'no bans'} • replay ${normalizeReplaySpeed(room.replaySpeed??0.33).toFixed(2)}× • ${room.players??0}/2 • ${room.status??(room.configLocked?'LOCKED':'WAITING')}`;
+    meta.textContent=`Hosted by ${normalizePlayerName(room.hostName??'Player')} • ${room.format??battleSizeLabel(room.teamSize??3)} • ${Number(room.draftBansPerPlayer)===1?'1 ban/player':'no bans'} • replay ${normalizeReplaySpeed(room.replaySpeed??0.33).toFixed(2)}× • ${room.players??0}/2 • ${room.status??(room.configLocked?'LOCKED':'WAITING')}`;
     main.append(id,meta);
-    const join=document.createElement('button');join.textContent='JOIN';join.disabled=!!room.configLocked||Number(room.players)>=2||socket?.ws?.readyState!==WebSocket.OPEN;
-    join.onclick=()=>{q('roomId').value=room.id;socket?.joinRoom(room.id);setLobbyStatus(`Joining ${room.id}…`);};
+    const join=document.createElement('button');join.textContent='JOIN';join.className='join-room-button';join.disabled=!!room.configLocked||Number(room.players)>=2||socket?.ws?.readyState!==WebSocket.OPEN;
+    row.classList.toggle('open-room',!join.disabled);
+    join.onclick=()=>{savePlayerName();q('roomId').value=room.id;socket?.joinRoom(room.id);setLobbyStatus(`Joining ${room.id}…`);};
     row.append(main,join);list.appendChild(row);
   }
 }
@@ -135,7 +194,7 @@ function renderNetworkDraft(){
   const complete=phase==='COMPLETE'||!!state.complete;
   const banPhase=phase==='BAN';
   q('draftTitle').textContent=`2P ${banPhase?'Ban':'Draft'} — ${battleSizeLabel(size)}`;
-  q('draftMyTitle').textContent='YOUR PICKS';q('draftOpponentTitle').textContent='OPPONENT PICKS';
+  q('draftMyTitle').textContent=`${currentPlayerName().toUpperCase()} PICKS`;q('draftOpponentTitle').textContent=`${normalizePlayerName(currentRoom?.playerNames?.[networkOpponentSide()]??'OPPONENT').toUpperCase()} PICKS`;
   const chip=q('draftTurnChip');
   chip.textContent=complete?'DRAFT COMPLETE':(mine?(banPhase?'YOUR BAN':'YOUR PICK'):(banPhase?'OPPONENT BAN':'OPPONENT PICK'));
   chip.className=`draft-turn-chip ${complete?'complete':(banPhase?'ban':(mine?'mine':'opp'))}`;
@@ -171,9 +230,11 @@ function setRematchButton({visible=false,disabled=false,label='REQUEST REMATCH'}
   button.classList.toggle('hidden',!visible);button.disabled=disabled;button.textContent=label;
 }
 function resetRoomUi(message='Not currently in a room.'){
-  closeNetworkDraft();currentRoom=null;networkMatchCompleteConfirmed=false;scene.setReplaySpeed(networkReplaySpeed,{locked:false,notify:false});setRematchButton({visible:false});renderCurrentRoom();setLobbyConfigEditable(true);setLobbyStatus(message);
+  closeNetworkDraft();currentRoom=null;networkMatchCompleteConfirmed=false;scene.setReplaySpeed(networkReplaySpeed,{locked:false,notify:false});setRematchButton({visible:false});renderCurrentRoom();setLobbyConfigEditable(true);setLobbyStatus(message);setChatAvailable(false);
 }
 async function handleNetworkMessage(msg){
+  if(msg.kind==='chat_message'){appendChatMessage(msg);return;}
+  if(msg.kind==='player_names'){if(currentRoom&&currentRoom.id===msg.roomId){currentRoom.playerNames=msg.playerNames??currentRoom.playerNames;renderCurrentRoom();if(networkDraftState)renderNetworkDraft();}return;}
   q('connection').textContent=`${msg.kind}${msg.side?` • Side ${msg.side}`:''}${msg.roomId?` • ${msg.roomId}`:''}`;
   scene.log(`[NET] ${msg.kind}`,'system');
   if(msg.kind==='hello_ack'){
@@ -183,9 +244,10 @@ async function handleNetworkMessage(msg){
   }
   if(msg.kind==='rooms'){renderRooms(msg.rooms);return;}
   if(msg.kind==='room_joined'){
-    currentRoom={id:msg.roomId,side:msg.side,config:msg.config??networkConfig(),configLocked:!!msg.configLocked,players:msg.players??1};
+    currentRoom={id:msg.roomId,side:msg.side,config:msg.config??networkConfig(),configLocked:!!msg.configLocked,players:msg.players??1,playerNames:msg.playerNames??{}};
     q('roomId').value=msg.roomId;applyNetworkConfig(currentRoom.config);renderCurrentRoom();
     setLobbyConfigEditable(currentRoom.side===SIDE.A&&!currentRoom.configLocked);
+    clearChat();setChatAvailable(true);appendChatSystem(`Connected to room ${msg.roomId} as ${currentPlayerName()} (${msg.side===SIDE.A?'HOST':'PLAYER 2'}). Chat is live for this room.`);
     setLobbyStatus(currentRoom.configLocked?'Both players joined. Configuration locked; draft handoff is ready.':'Room created/joined. Waiting for Player 2.');
     return;
   }
@@ -194,9 +256,9 @@ async function handleNetworkMessage(msg){
     setLobbyStatus(`Room configuration updated: ${battleSizeLabel(msg.config.teamSize)} • ${msg.config.draftBansPerPlayer?'1 ban/player':'no bans'} • replay ${normalizeReplaySpeed(msg.config.replaySpeed??0.33).toFixed(2)}×.`);return;
   }
   if(msg.kind==='room_locked'){
-    if(currentRoom&&currentRoom.id===msg.roomId){currentRoom.config=msg.config;currentRoom.configLocked=true;currentRoom.players=2;applyNetworkConfig(msg.config);renderCurrentRoom();}
+    if(currentRoom&&currentRoom.id===msg.roomId){currentRoom.config=msg.config;currentRoom.configLocked=true;currentRoom.players=2;currentRoom.playerNames=msg.playerNames??currentRoom.playerNames;applyNetworkConfig(msg.config);renderCurrentRoom();}
     setLobbyConfigEditable(false);q('lobbyConnectionBadge').textContent='ROOM LOCKED';q('lobbyConnectionBadge').className='lobby-badge locked';
-    scene.setReplaySpeed(msg.config?.replaySpeed??0.33,{locked:true,notify:false});
+    scene.setReplaySpeed(msg.config?.replaySpeed??0.33,{locked:true,notify:false});appendChatSystem('Opponent connected — room locked and draft starting.');
     setLobbyStatus(`${battleSizeLabel(msg.config.teamSize)} lobby locked with both players at replay ${normalizeReplaySpeed(msg.config.replaySpeed??0.33).toFixed(2)}×. ${msg.config.draftBansPerPlayer?'Ban phase enabled: 1 ban per player.':'No draft bans.'} Network draft starting…`);return;
   }
   if(msg.kind==='draft_state'){
@@ -221,8 +283,8 @@ async function handleNetworkMessage(msg){
   // Stage 25D deterministic battle lifecycle.
   if(msg.kind==='match_started'){
     networkMatchCompleteConfirmed=false;setRematchButton({visible:false});
-    if(currentRoom){currentRoom.matchNumber=msg.matchNumber??currentRoom.matchNumber;currentRoom.draftPhase=null;renderCurrentRoom();}
-    closeNetworkDraft();showNetworkPanel(false);q('lobbyConnectionBadge').textContent='IN MATCH';q('lobbyConnectionBadge').className='lobby-badge locked';
+    if(currentRoom){currentRoom.matchNumber=msg.matchNumber??currentRoom.matchNumber;currentRoom.draftPhase=null;currentRoom.playerNames=msg.playerNames??currentRoom.playerNames;renderCurrentRoom();}
+    closeNetworkDraft();showNetworkPanel(false);q('lobbyConnectionBadge').textContent='IN MATCH';q('lobbyConnectionBadge').className='lobby-badge locked';appendChatSystem('Match started — room chat remains available in the 2P CHAT tab.');
     scene.setReplaySpeed(msg.config?.replaySpeed??currentRoom?.config?.replaySpeed??0.33,{locked:true,notify:false});
     scene.beginNetworkMatch({matchId:msg.matchId,side:socket.side,timeoutsRemaining:msg.timeoutsRemaining?.[socket.side]??3,teamA:msg.teamA,teamB:msg.teamB});
   }else if(msg.kind==='selection_timeout_granted')scene.applyNetworkTimeout(msg);
@@ -261,17 +323,18 @@ async function connectCoordinator(){
   q('connection').textContent='Coordinator: connecting…';q('lobbyConnectionBadge').textContent='CONNECTING…';q('lobbyConnectionBadge').className='lobby-badge';
   try{
     await socket.connect();
+    socket.setPlayerName(currentPlayerName());
     if(reconnectTimer){clearTimeout(reconnectTimer);reconnectTimer=null;}
     q('connection').textContent='Coordinator online';q('lobbyConnectionBadge').textContent='ONLINE';q('lobbyConnectionBadge').className='lobby-badge online';socket.listRooms();
   }catch(e){q('connection').textContent='Coordinator reconnecting…';q('lobbyConnectionBadge').textContent='RETRYING…';q('lobbyConnectionBadge').className='lobby-badge';setLobbyStatus('Multiplayer coordinator is waking up or temporarily unavailable. Retrying automatically…');scheduleCoordinatorReconnect();}
 }
 q('createRoomBtn').onclick=()=>{
   if(!socket?.ws||socket.ws.readyState!==WebSocket.OPEN)return setLobbyStatus('Coordinator is still connecting. Please wait a moment.');
-  const id=q('roomId').value.trim()||undefined;socket.createRoom({id,...networkConfig()});setLobbyStatus(`Creating ${battleSizeLabel(networkTeamSize)} room…`);
+  savePlayerName();const id=q('roomId').value.trim()||undefined;socket.createRoom({id,...networkConfig()});setLobbyStatus(`Creating ${battleSizeLabel(networkTeamSize)} room…`);
 };
 q('joinRoomBtn').onclick=()=>{
   if(!socket?.ws||socket.ws.readyState!==WebSocket.OPEN)return setLobbyStatus('Coordinator is still connecting. Please wait a moment.');
-  const id=q('roomId').value.trim();if(!id)return setLobbyStatus('Enter a room ID or choose an advertised room.');socket.joinRoom(id);setLobbyStatus(`Joining ${id}…`);
+  savePlayerName();const id=q('roomId').value.trim();if(!id)return setLobbyStatus('Enter a room ID or choose an advertised room.');socket.joinRoom(id);setLobbyStatus(`Joining ${id}…`);
 };
 q('refreshRoomsBtn').onclick=()=>socket?.listRooms();
 setLobbyConfigEditable(true);

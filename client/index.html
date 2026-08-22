@@ -22,6 +22,10 @@
       <button id="timeControlButton">PAUSE</button>
       <div id="connection"></div>
     </div>
+    <div class="player-name-control" title="Your multiplayer display name">
+      <label for="playerNameInput">PLAYER</label>
+      <input id="playerNameInput" maxlength="20" autocomplete="nickname" spellcheck="false" placeholder="Your name">
+    </div>
     <div id="modeButtons">
       <button id="sandboxButton" class="active">1P SANDBOX</button>
       <button id="rosterButton" class="roster-button">1P ROSTER</button>
@@ -41,8 +45,21 @@
         <div id="statusLine">Choose a champion.</div>
       </section>
       <section class="panel combat-log-panel" id="logPanel">
-        <div class="panel-heading"><h3>Combat Log</h3><button id="clearLogButton">CLEAR</button></div>
+        <div class="panel-heading log-chat-heading">
+          <div class="log-chat-tabs" role="tablist" aria-label="Combat log and multiplayer chat">
+            <button id="combatLogTabButton" class="log-chat-tab active" type="button" role="tab" aria-selected="true">COMBAT LOG</button>
+            <button id="chatTabButton" class="log-chat-tab" type="button" role="tab" aria-selected="false" disabled>2P CHAT <span id="chatUnreadBadge" class="chat-unread hidden">0</span></button>
+          </div>
+          <button id="clearLogButton">CLEAR</button>
+        </div>
         <div id="combatLog"></div>
+        <div id="multiplayerChat" class="multiplayer-chat hidden" role="tabpanel" aria-label="2P room chat">
+          <div id="chatMessages" class="chat-messages"><div class="chat-system">Join a 2P room to chat with your opponent.</div></div>
+          <form id="chatForm" class="chat-compose">
+            <input id="chatInput" maxlength="240" autocomplete="off" placeholder="Message opponent…" disabled>
+            <button id="chatSendButton" type="submit" disabled>SEND</button>
+          </form>
+        </div>
       </section>
     </section>
 

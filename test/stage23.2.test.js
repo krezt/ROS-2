@@ -9,7 +9,7 @@ function event(type,{actorId='H0',targetId='G0',initiativeCycle=3,payload={}}={}
 
 test('combat log names roster abilities and champions from authoritative ACTION_START',()=>{
   const text=describeAuthoritativeEvent(event(EVENT_TYPE.ACTION_START,{payload:{actionId:'POWER_STRIKE',actionKind:'BASIC_ATTACK'}}),state());
-  assert.match(text,/Warrior \(H0\) uses Power Strike/);
+  assert.match(text,/Warrior \(H0\) uses Power Strikes/);
   assert.match(text,/Barbarian \(G0\)/);
 });
 

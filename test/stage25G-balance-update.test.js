@@ -52,7 +52,7 @@ test('Stage 25G roster balance values match the requested update',()=>{
   assert.deepEqual([storm.heal.min,storm.heal.max],[25,125]);
 
   const light=getAbility('Cleric','PIERCING_LIGHT');
-  assert.equal(light.area.shape,'SQUARE_5X5');
+  assert.equal(light.area.shape,'SQUARE_7X7');
   const lightDamage=light.effects.find(e=>e.type==='AOE_DAMAGE');
   assert.deepEqual([lightDamage.min,lightDamage.max],[150,250]);
 });

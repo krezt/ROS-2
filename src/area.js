@@ -8,6 +8,7 @@ export const AREA_SHAPE = Object.freeze({
   SQUARE_4X4: 'SQUARE_4X4',
   SQUARE_5X5: 'SQUARE_5X5',
   SQUARE_6X6: 'SQUARE_6X6',
+  SQUARE_7X7: 'SQUARE_7X7',
   CROSS: 'CROSS',
   LINE: 'LINE',
   MANHATTAN_RADIUS: 'MANHATTAN_RADIUS',
@@ -43,6 +44,10 @@ export function cellsForArea(board, spec) {
     case AREA_SHAPE.SQUARE_6X6:
       invariant(center, 'SQUARE_6X6 area requires center.');
       for (let dr = -2; dr <= 3; dr += 1) for (let dc = -2; dc <= 3; dc += 1) pushIfInBounds(board, cells, center.row + dr, center.col + dc);
+      break;
+    case AREA_SHAPE.SQUARE_7X7:
+      invariant(center, 'SQUARE_7X7 area requires center.');
+      for (let dr = -3; dr <= 3; dr += 1) for (let dc = -3; dc <= 3; dc += 1) pushIfInBounds(board, cells, center.row + dr, center.col + dc);
       break;
     case AREA_SHAPE.CROSS:
       invariant(center, 'CROSS area requires center.');

@@ -2,11 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { getAbility } from '../src/roster.js';
 
-test('Power Surge buffs both ATK and SDM for five rounds',()=>{
+test('Power Surge buffs both ATK and SDM for three rounds',()=>{
   const a=getAbility('Electromancer','POWER_SURGE');
   const statuses=a.effects.filter(e=>e.type==='APPLY_STATUS');
   assert.deepEqual(statuses.map(e=>e.key).sort(),['atk_up','sdm_up']);
-  assert.ok(statuses.every(e=>e.duration===5&&e.to==='ALL_ALLIES'));
+  assert.ok(statuses.every(e=>e.duration===3&&e.to==='ALL_ALLIES'));
 });
 
 test('Volley receives the requested additional 20% damage increase',()=>{
@@ -20,11 +20,11 @@ test('Rend strips twenty percent ARM per successful hit and retains three-round 
   assert.equal(style.onHit.duration,3);
 });
 
-test("Enid's Blessing heals each ally for 100-250 and still cleanses Poison",()=>{
+test("Enid's Blessing heals each ally for 15-25% max HP and still cures Poison",()=>{
   const a=getAbility('Cleric','ENIDS_BLESSING');
-  const h=a.effects.find(e=>e.type==='HEAL');
+  const h=a.effects.find(e=>e.type==='HEAL_PERCENT_ROLL');
   const c=a.effects.find(e=>e.type==='CLEANSE');
-  assert.deepEqual([h.min,h.max,h.to],[100,250,'ALL_ALLIES']);
+  assert.deepEqual([h.minPct,h.maxPct,h.to],[.15,.25,'ALL_ALLIES']);
   assert.deepEqual(c.keys,['poison']);
 });
 
