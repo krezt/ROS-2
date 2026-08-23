@@ -79,7 +79,6 @@ function appendChatMessage(msg){
 }
 setChatAvailable(false);
 
-q('sandboxButton').onclick=()=>{activateTopButton(q('sandboxButton'));showNetworkPanel(false);scene.startSandbox();};
 q('pvpButton').onclick=()=>enterNetworkMode(false);
 q('rankedButton').onclick=()=>enterNetworkMode(true);
 
@@ -89,7 +88,7 @@ let networkReplaySpeed=0.33;
 let networkRankedMode=false;
 let currentRoom=null;
 let advertisedRooms=[];
-let latestRankings={version:2,updatedAt:null,formats:['1v1','2v2','3v3','4v4','5v5'],ratingSystem:{name:'Elo',initial:1500,kFactor:32},players:[],champions:[]};
+let latestRankings={version:3,updatedAt:null,formats:['1v1','2v2','3v3','4v4','5v5'],ratingSystem:{name:'Elo',initial:1500,kFactor:32},players:[],champions:[]};
 let rankingFormat='3v3',rankingView='players';
 let networkMatchCompleteConfirmed=false;
 
@@ -98,7 +97,7 @@ function activeNetworkButton(){return networkRankedMode?q('rankedButton'):q('pvp
 function setNetworkRankedMode(ranked,{activate=true}={}){
   networkRankedMode=ranked===true;
   if(activate)activateTopButton(activeNetworkButton());
-  q('networkPanelTitle').textContent=networkRankedMode?'2P Ranked Lobby':'2P Battle Lobby';
+  q('networkPanelTitle').textContent=networkRankedMode?'2P Ranked Lobby':'2P Draft Lobby';
   q('rankedLobbyNotice').classList.toggle('hidden',!networkRankedMode);
   q('roomBrowserTitle').textContent=networkRankedMode?'OPEN RANKED ROOMS':'OPEN CASUAL ROOMS';
   q('createRoomBtn').textContent=networkRankedMode?'CREATE RANKED ROOM':'CREATE ROOM';
@@ -111,7 +110,7 @@ function enterNetworkMode(ranked){
   setNetworkRankedMode(ranked,{activate:true});showNetworkPanel(true);scene.setMode('PVP');connectCoordinator();
 }
 function setNetworkTeamSize(size,{send=true}={}){
-  networkTeamSize=Math.max(1,Math.min(5,Number(size)||3));
+  networkTeamSize=Math.max(2,Math.min(5,Number(size)||3));
   for(const b of document.querySelectorAll('[data-network-team-size]'))b.classList.toggle('selected',Number(b.dataset.networkTeamSize)===networkTeamSize);
   if(send&&socket&&currentRoom?.side===SIDE.A&&!currentRoom.configLocked)socket.updateRoomConfig(networkConfig());
 }
@@ -252,11 +251,29 @@ function setRematchButton({visible=false,disabled=false,label='REQUEST REMATCH'}
   const button=q('matchResultRematchButton');if(!button)return;
   button.classList.toggle('hidden',!visible);button.disabled=disabled;button.textContent=label;
 }
-function resetRoomUi(message='Not currently in a room.'){
-  closeNetworkDraft();currentRoom=null;networkMatchCompleteConfirmed=false;q('playerNameInput').disabled=false;scene.setReplaySpeed(networkReplaySpeed,{locked:false,notify:false});setRematchButton({visible:false});renderCurrentRoom();setLobbyConfigEditable(true);setLobbyStatus(message);setChatAvailable(false);
+function setDrawButton({visible=false,disabled=false,label='PROPOSE DRAW',pending=false}={}){
+  const button=q('drawProposalButton');if(!button)return;
+  button.classList.toggle('hidden',!visible);button.classList.toggle('pending',pending);button.disabled=disabled;button.textContent=label;
 }
-function recordText(record){return record&&Number(record.games)>0?`${record.wins}-${record.losses}`:'—';}
-function rankingRecord(entity,format){return entity?.formats?.[format]??{wins:0,losses:0,games:0,winPct:0,rank:null,rating:1500};}
+function hideDrawProposal(){const modal=q('drawProposalModal');modal?.classList.add('hidden');modal?.setAttribute('aria-hidden','true');}
+function showDrawProposal(msg={}){
+  const proposer=normalizePlayerName(msg.playerNames?.[msg.proposedBy]??'Opponent');
+  q('drawProposalText').textContent=`${proposer} has proposed ending this match as a draw. Accepting ends the match immediately${currentRoom?.config?.ranked?' and records a Ranked draw':''}.`;
+  const modal=q('drawProposalModal');modal.classList.remove('hidden');modal.setAttribute('aria-hidden','false');
+}
+function resetDrawUi(){hideDrawProposal();setDrawButton({visible:false});}
+q('drawProposalButton').onclick=()=>{
+  if(scene.mode!=='PVP'||!currentRoom||networkMatchCompleteConfirmed||!socket?.ws||socket.ws.readyState!==WebSocket.OPEN)return;
+  setDrawButton({visible:true,disabled:true,label:'SENDING DRAW…',pending:true});
+  try{socket.proposeDraw();}catch{setDrawButton({visible:true});scene.setStatus('Unable to send draw proposal — coordinator is unavailable.');}
+};
+q('acceptDrawButton').onclick=()=>{hideDrawProposal();setDrawButton({visible:true,disabled:true,label:'ACCEPTING DRAW…',pending:true});try{socket?.respondDraw(true);}catch{setDrawButton({visible:true});}};
+q('declineDrawButton').onclick=()=>{hideDrawProposal();setDrawButton({visible:true});try{socket?.respondDraw(false);}catch{}};
+function resetRoomUi(message='Not currently in a room.'){
+  closeNetworkDraft();currentRoom=null;networkMatchCompleteConfirmed=false;q('playerNameInput').disabled=false;scene.setReplaySpeed(networkReplaySpeed,{locked:false,notify:false});setRematchButton({visible:false});resetDrawUi();renderCurrentRoom();setLobbyConfigEditable(true);setLobbyStatus(message);setChatAvailable(false);
+}
+function recordText(record){return record&&Number(record.games)>0?`${record.wins}-${record.draws??0}-${record.losses}`:'—';}
+function rankingRecord(entity,format){return entity?.formats?.[format]??{wins:0,draws:0,losses:0,games:0,winPct:0,rank:null,rating:1500};}
 function setRankingFormat(format){
   if(!['1v1','2v2','3v3','4v4','5v5'].includes(format))return;
   rankingFormat=format;renderRankings();
@@ -281,7 +298,7 @@ function renderRankings(standings=latestRankings){
     }
     const tracked=champions.reduce((n,c)=>n+Number(rankingRecord(c,rankingFormat).games||0),0),teamSize=Number(rankingFormat[0])||1,matchEstimate=Math.floor(tracked/(teamSize*2));
     q('rankingsSummary').textContent=`${rankingFormat} CHAMPION WIN RATES • ${champions.length} champion${champions.length===1?'':'s'} • ${matchEstimate} tracked match${matchEstimate===1?'':'es'} • Updated: ${stamp}`;
-    q('rankingsFoot').textContent='Champion records count a win or loss for every drafted champion on the verified winning or losing team. Sort order: win rate, then games played.';
+    q('rankingsFoot').textContent='Champion records use W-D-L for every drafted champion. Mutually agreed draws are recorded for both teams; sort order remains win rate, then games played.';
     return;
   }
   head.innerHTML='<tr><th>#</th><th>Player</th><th>Rating</th><th>Record</th><th>Games</th><th>Win %</th></tr>';
@@ -294,7 +311,7 @@ function renderRankings(standings=latestRankings){
   }
   const gamesPlayed=Math.floor(players.reduce((n,p)=>n+Number(rankingRecord(p,rankingFormat).games||0),0)/2),system=latestRankings?.ratingSystem??{name:'Elo',initial:1500,kFactor:32};
   q('rankingsSummary').textContent=`${rankingFormat} PLAYER LADDER • ${players.length} ranked player${players.length===1?'':'s'} • ${gamesPlayed} match${gamesPlayed===1?'':'es'} • Updated: ${stamp}`;
-  q('rankingsFoot').textContent=`${system.name??'Elo'} ratings are independent for every team size (${system.initial??1500} initial rating, K=${system.kFactor??32}). Rank order follows rating, then wins.`;
+  q('rankingsFoot').textContent=`${system.name??'Elo'} ratings are independent for every team size (${system.initial??1500} initial rating, K=${system.kFactor??32}). Records are W-D-L; a draw scores 0.5 in Elo. Rank order follows rating, then wins.`;
 }
 function openRankings(){
   rankingFormat=`${Number(currentRoom?.config?.teamSize??networkTeamSize)||3}v${Number(currentRoom?.config?.teamSize??networkTeamSize)||3}`;
@@ -305,6 +322,10 @@ function humanServerError(code){
   if(code==='RANKED_NAME_REQUIRED')return 'Choose a player name before entering Ranked.';
   if(code==='RANKED_NAME_IN_USE')return 'That username is already being used by the other player in this ranked room.';
   if(code==='RANKED_NAME_LOCKED')return 'Player names are locked once a ranked room starts.';
+  if(code==='DRAW_PROPOSAL_ONLY_DURING_PLANNING')return 'Draws may be proposed during the action-planning phase between replays.';
+  if(code==='DRAW_PROPOSAL_PENDING')return 'A draw proposal is already pending.';
+  if(code==='DRAW_PROPOSAL_ONLY_BEFORE_LOCK')return 'Propose a draw before either player locks their actions for the round.';
+  if(code==='NO_DRAW_PROPOSAL')return 'There is no active draw proposal to answer.';
   return `Server error: ${code}`;
 }
 q('viewRankingsBtn').onclick=openRankings;q('closeRankingsButton').onclick=closeRankings;q('rankPlayersButton').onclick=()=>setRankingView('players');q('rankChampionsButton').onclick=()=>setRankingView('champions');for(const b of document.querySelectorAll('[data-ranking-format]'))b.onclick=()=>setRankingFormat(b.dataset.rankingFormat);q('rankingsModal').addEventListener('pointerdown',e=>{if(e.target===q('rankingsModal'))closeRankings();});
@@ -313,7 +334,7 @@ async function handleNetworkMessage(msg){
   if(msg.kind==='rankings'||msg.kind==='rankings_updated'){renderRankings(msg.standings);return;}
   if(msg.kind==='ranked_match_recorded'){
     renderRankings(msg.standings);const mine=(msg.standings?.players??[]).find(p=>normalizePlayerName(p.name).toLowerCase()===currentPlayerName().toLowerCase()),formatRecord=mine?.formats?.[msg.format];
-    const note=mine&&formatRecord?`${mine.name} is #${formatRecord.rank} in ${msg.format} at ${formatRecord.rating} (${formatRecord.wins}-${formatRecord.losses}).`:'Ranked ladder updated.';appendChatSystem(`Ranked result recorded (${msg.format}) — ${note}`);scene.setStatus(`Ranked result recorded — ${note}`);return;
+    const note=mine&&formatRecord?`${mine.name} is #${formatRecord.rank} in ${msg.format} at ${formatRecord.rating} (${formatRecord.wins}-${formatRecord.draws??0}-${formatRecord.losses}).`:'Ranked ladder updated.';appendChatSystem(`${msg.draw?'Ranked draw':'Ranked result'} recorded (${msg.format}) — ${note}`);scene.setStatus(`${msg.draw?'Ranked draw':'Ranked result'} recorded — ${note}`);return;
   }
   if(msg.kind==='chat_message'){appendChatMessage(msg);return;}
   if(msg.kind==='player_names'){if(currentRoom&&currentRoom.id===msg.roomId){currentRoom.playerNames=msg.playerNames??currentRoom.playerNames;renderCurrentRoom();if(networkDraftState)renderNetworkDraft();}return;}
@@ -353,25 +374,35 @@ async function handleNetworkMessage(msg){
   }
   if(msg.kind==='opponent_disconnected'){
     const reason=`Opponent disconnected${msg.during?` during ${String(msg.during).toLowerCase().replace('_',' ')}`:''}. Match session closed.`;
-    scene.handleNetworkDisconnect(reason);showNetworkPanel(true);activateTopButton(activeNetworkButton());setRematchButton({visible:false});setLobbyStatus(reason);return;
+    scene.handleNetworkDisconnect(reason);resetDrawUi();setDrawButton({visible:false});showNetworkPanel(true);activateTopButton(activeNetworkButton());setRematchButton({visible:false});setLobbyStatus(reason);return;
   }
   if(msg.kind==='room_closed'){
-    scene.handleNetworkDisconnect('Room closed because a player left.');resetRoomUi('Room closed because a player left. Create or join another room.');showNetworkPanel(true);activateTopButton(activeNetworkButton());socket?.listRooms();return;
+    scene.handleNetworkDisconnect('Room closed because a player left.');resetDrawUi();setDrawButton({visible:false});resetRoomUi('Room closed because a player left. Create or join another room.');showNetworkPanel(true);activateTopButton(activeNetworkButton());socket?.listRooms();return;
   }
-  if(msg.kind==='error'){setLobbyStatus(humanServerError(msg.code));return;}
+  if(msg.kind==='error'){const human=humanServerError(msg.code);if(String(msg.code??'').startsWith('DRAW_')){hideDrawProposal();setDrawButton({visible:scene.mode==='PVP'&&!networkMatchCompleteConfirmed});scene.setStatus(human);}setLobbyStatus(human);return;}
   if(msg.kind==='socket_closed'){
     const wasPvp=scene.mode==='PVP';
-    q('lobbyConnectionBadge').textContent='RECONNECTING…';q('lobbyConnectionBadge').className='lobby-badge';scene.handleNetworkDisconnect('Coordinator connection closed. Reconnecting automatically…');resetRoomUi('Connection closed. Reconnecting automatically…');if(wasPvp){showNetworkPanel(true);activateTopButton(activeNetworkButton());}scheduleCoordinatorReconnect();return;
+    q('lobbyConnectionBadge').textContent='RECONNECTING…';q('lobbyConnectionBadge').className='lobby-badge';scene.handleNetworkDisconnect('Coordinator connection closed. Reconnecting automatically…');resetDrawUi();setDrawButton({visible:false});resetRoomUi('Connection closed. Reconnecting automatically…');if(wasPvp){showNetworkPanel(true);activateTopButton(activeNetworkButton());}scheduleCoordinatorReconnect();return;
+  }
+  if(msg.kind==='draw_proposed'){
+    const mine=msg.proposedBy===socket?.side;setDrawButton({visible:true,disabled:mine,label:mine?'DRAW PROPOSED — WAITING':'OPPONENT PROPOSED DRAW',pending:true});
+    if(mine){appendChatSystem('Draw proposal sent. Waiting for opponent response.');scene.setStatus('Draw proposed. Waiting for opponent…');}
+    else{showDrawProposal(msg);appendChatSystem(`${normalizePlayerName(msg.playerNames?.[msg.proposedBy]??'Opponent')} proposed a draw.`);scene.setStatus('Opponent proposed a draw. Accept or decline the proposal.');}
+    return;
+  }
+  if(msg.kind==='draw_declined'){
+    resetDrawUi();setDrawButton({visible:true});const expired=msg.reason==='ROUND_LOCKED',copy=expired?'Draw proposal expired when round actions were locked.':'Draw proposal declined. The match continues.';appendChatSystem(copy);scene.setStatus(expired?'Draw proposal expired. Continue the round.':'Draw proposal declined. Continue the match.');return;
   }
   // Stage 25D deterministic battle lifecycle.
   if(msg.kind==='match_started'){
-    networkMatchCompleteConfirmed=false;setRematchButton({visible:false});
+    networkMatchCompleteConfirmed=false;setRematchButton({visible:false});resetDrawUi();setDrawButton({visible:true});
     if(currentRoom){currentRoom.matchNumber=msg.matchNumber??currentRoom.matchNumber;currentRoom.draftPhase=null;currentRoom.playerNames=msg.playerNames??currentRoom.playerNames;renderCurrentRoom();}
     closeNetworkDraft();showNetworkPanel(false);q('lobbyConnectionBadge').textContent=currentRoom?.config?.ranked?'RANKED MATCH':'IN MATCH';q('lobbyConnectionBadge').className='lobby-badge locked';appendChatSystem(`${currentRoom?.config?.ranked?'Ranked match':'Match'} started — room chat remains available in the 2P CHAT tab.`);
     scene.setReplaySpeed(msg.config?.replaySpeed??currentRoom?.config?.replaySpeed??0.33,{locked:true,notify:false});
     scene.beginNetworkMatch({matchId:msg.matchId,side:socket.side,timeoutsRemaining:msg.timeoutsRemaining?.[socket.side]??3,teamA:msg.teamA,teamB:msg.teamB});
   }else if(msg.kind==='selection_timeout_granted')scene.applyNetworkTimeout(msg);
-  else if(msg.kind==='round_package')scene.receiveNetworkRoundPackage(msg.package);
+  else if(msg.kind==='round_declarations_locked'){setDrawButton({visible:true,disabled:true,label:'DRAW BETWEEN ROUNDS'});}
+  else if(msg.kind==='round_package'){setDrawButton({visible:true,disabled:true,label:'DRAW BETWEEN ROUNDS'});scene.receiveNetworkRoundPackage(msg.package);}
   else if(msg.kind==='round_confirmed'){
     const local=await scene.confirmNetworkRound(msg);if(local?.desync)return;
     if(local?.complete)socket?.reportMatchComplete({roundNumber:local.roundNumber,winner:local.outcome?.winner,finalStateHash:local.digest?.finalStateHash,eventStreamHash:local.digest?.eventStreamHash});
@@ -379,17 +410,19 @@ async function handleNetworkMessage(msg){
   }else if(msg.kind==='round_ready_status'){
     const count=msg.readySides?.length??0;scene.setWaitingForOpponent(count<2&&(msg.readySides??[]).includes(socket?.side));scene.setStatus(count<2?`Your replay is complete. Waiting for opponent… (${count}/2 ready)`:`Both replays complete. Opening next round…`);
   }
-  else if(msg.kind==='round_open'){scene.setWaitingForOpponent(false);scene.openNetworkRound(msg.roundNumber);}
+  else if(msg.kind==='round_open'){scene.setWaitingForOpponent(false);setDrawButton({visible:true});scene.openNetworkRound(msg.roundNumber);}
   else if(msg.kind==='round_desync'||msg.kind==='match_desync'){
     const detail=msg.mismatches?.join(', ')??msg.reason??'HASH_MISMATCH';scene.handleNetworkDisconnect(`DESYNC — ${detail}. Match halted.`);setRematchButton({visible:false});
   }else if(msg.kind==='match_complete_received'){scene.setWaitingForOpponent(false);scene.setStatus(msg.waitingForOpponent?'Match complete locally. Verifying opponent final result…':'Final result received by server.');}
   else if(msg.kind==='match_complete_confirmed'){
-    scene.setWaitingForOpponent(false);networkMatchCompleteConfirmed=true;if(currentRoom){currentRoom.postMatch=true;renderCurrentRoom();}
-    q('lobbyConnectionBadge').textContent=msg.ranked?'RANKED COMPLETE':'MATCH COMPLETE';q('lobbyConnectionBadge').className='lobby-badge locked';setRematchButton({visible:!!msg.rematchAvailable,disabled:false,label:'REQUEST REMATCH'});scene.setStatus(`Match result verified by both clients — Side ${msg.winner} wins.${msg.ranked?' Ranked ladder recorded.':''} Rematch available.`);
+    scene.setWaitingForOpponent(false);networkMatchCompleteConfirmed=true;resetDrawUi();setDrawButton({visible:false});if(currentRoom){currentRoom.postMatch=true;renderCurrentRoom();}
+    q('lobbyConnectionBadge').textContent=msg.draw?(msg.ranked?'RANKED DRAW':'MATCH DRAW'):(msg.ranked?'RANKED COMPLETE':'MATCH COMPLETE');q('lobbyConnectionBadge').className='lobby-badge locked';setRematchButton({visible:!!msg.rematchAvailable,disabled:false,label:'REQUEST REMATCH'});
+    if(msg.draw){scene.showNetworkDraw?.();scene.setStatus(`Draw agreed by both players.${msg.ranked?' Ranked draw recorded.':''} Rematch available.`);}
+    else scene.setStatus(`Match result verified by both clients — Side ${msg.winner} wins.${msg.ranked?' Ranked ladder recorded.':''} Rematch available.`);
   }else if(msg.kind==='rematch_status'){
     const voted=(msg.votes??[]).includes(socket?.side);setRematchButton({visible:true,disabled:voted,label:voted?'REMATCH REQUESTED — WAITING':'REQUEST REMATCH'});scene.setStatus(`Rematch votes: ${msg.votes?.length??0}/${msg.required??2}.`);
   }else if(msg.kind==='rematch_start'){
-    networkMatchCompleteConfirmed=false;setRematchButton({visible:false});hideMatchResult();scene.prepareNetworkRematch();showNetworkPanel(false);if(currentRoom){currentRoom.postMatch=false;currentRoom.draftPhase='DRAFT';renderCurrentRoom();}q('lobbyConnectionBadge').textContent='REMATCH DRAFT';q('lobbyConnectionBadge').className='lobby-badge locked';setLobbyStatus('Both players accepted the rematch. New synchronized draft starting…');
+    networkMatchCompleteConfirmed=false;setRematchButton({visible:false});resetDrawUi();setDrawButton({visible:false});hideMatchResult();scene.prepareNetworkRematch();showNetworkPanel(false);if(currentRoom){currentRoom.postMatch=false;currentRoom.draftPhase='DRAFT';renderCurrentRoom();}q('lobbyConnectionBadge').textContent='REMATCH DRAFT';q('lobbyConnectionBadge').className='lobby-badge locked';setLobbyStatus('Both players accepted the rematch. New synchronized draft starting…');
   }
 }
 
@@ -535,11 +568,11 @@ function metricValue(award){
 }
 function renderMatchResult(detail){
   const stats=detail?.stats;if(!stats)return;
-  const victory=detail.result==='VICTORY';
-  const banner=q('matchResultBanner');banner.className=`match-result-banner ${victory?'victory':'defeat'}`;
+  const victory=detail.result==='VICTORY',draw=detail.result==='DRAW';
+  const banner=q('matchResultBanner');banner.className=`match-result-banner ${draw?'draw':(victory?'victory':'defeat')}`;
   q('matchResultTitle').textContent=detail.result;
   const a=stats.teamTotals?.A??{damage:0,kills:0,healing:0},b=stats.teamTotals?.B??{damage:0,kills:0,healing:0};
-  q('matchResultSummary').textContent=`Winner: Side ${detail.winner} • Side A ${a.damage.toLocaleString()} damage • Side B ${b.damage.toLocaleString()} damage`;
+  q('matchResultSummary').textContent=draw?`Mutually agreed draw • Side A ${a.damage.toLocaleString()} damage • Side B ${b.damage.toLocaleString()} damage`:`Winner: Side ${detail.winner} • Side A ${a.damage.toLocaleString()} damage • Side B ${b.damage.toLocaleString()} damage`;
   q('matchRoundCount').textContent=`${stats.roundsCompleted} round${stats.roundsCompleted===1?'':'s'}`;
   const awards=q('matchAwards');awards.innerHTML='';
   for(const award of stats.awards??[]){
@@ -564,6 +597,6 @@ window.addEventListener('ros:match-complete',event=>renderMatchResult(event.deta
 window.addEventListener('ros:match-reset',hideMatchResult);
 q('matchResultViewButton').onclick=hideMatchResult;
 q('matchResultRematchButton').onclick=()=>{if(!socket||!currentRoom||!networkMatchCompleteConfirmed)return;setRematchButton({visible:true,disabled:true,label:'REMATCH REQUESTED — WAITING'});socket.requestRematch();};
-q('matchResultSandboxButton').onclick=()=>{if(scene.mode==='PVP'&&socket&&currentRoom){try{socket.leaveRoom();}catch{}}hideMatchResult();resetRoomUi('Not currently in a room.');activateTopButton(q('sandboxButton'));showNetworkPanel(false);scene.startSandbox();};
+q('matchResultRosterButton').onclick=()=>{if(scene.mode==='PVP'&&socket&&currentRoom){try{socket.leaveRoom();}catch{}}hideMatchResult();resetDrawUi();setDrawButton({visible:false});resetRoomUi('Not currently in a room.');activateTopButton(q('rosterButton'));showNetworkPanel(false);openRosterPicker();};
 
 // Stage 24D client lineage marker retained for presentation regression coverage.

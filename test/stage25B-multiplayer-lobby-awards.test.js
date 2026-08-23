@@ -68,10 +68,11 @@ test('Stage25B CoordinatorSocket sends host-selected room format and draft-ban c
   }finally{globalThis.WebSocket=old;}
 });
 
-test('Stage25B browser exposes advertised-room lobby, 1v1–5v5 host config, draft-ban option, and match awards',()=>{
+test('Stage25B browser exposes advertised-room lobby, 2v2–5v5 multiplayer host config, draft-ban option, and match awards',()=>{
   const html=readFileSync(new URL('../client/index.html',import.meta.url),'utf8');
   const main=readFileSync(new URL('../client/main.js',import.meta.url),'utf8');
-  for(const n of [1,2,3,4,5])assert.match(html,new RegExp(`data-network-team-size="${n}"`));
+  for(const n of [2,3,4,5])assert.match(html,new RegExp(`data-network-team-size="${n}"`));
+  assert.doesNotMatch(html,/data-network-team-size="1"/);
   for(const id of ['draftBanToggle','roomList','currentRoomCard','matchResultModal','matchAwards','matchStatsBody'])assert.match(html,new RegExp(`id="${id}"`));
   for(const award of ['Highest Damage','Most Kills','Most Healing','Most Damage in 1 Round'])assert.match(readFileSync(new URL('../client/match-awards.js',import.meta.url),'utf8'),new RegExp(award));
   assert.match(main,/room_locked/);

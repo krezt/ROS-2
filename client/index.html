@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Realm of Shinobi 2.0 — Stage 25Q Ranked Ratings + Champion Analytics</title>
+  <title>Realm of Shinobi 2.0 — Stage 25R Multiplayer Draw + UI Polish</title>
   <link rel="stylesheet" href="./styles.css">
   <script src="https://cdn.jsdelivr.net/npm/phaser@3.90.0/dist/phaser.js"></script>
 </head>
@@ -20,6 +20,7 @@
       <div id="timer">02:00</div>
       <button id="replaySpeedButton" title="Replay speed">REPLAY 0.33×</button>
       <button id="timeControlButton">PAUSE</button>
+      <button id="drawProposalButton" class="draw-proposal-button hidden" type="button" title="Offer a mutually agreed draw to your opponent">PROPOSE DRAW</button>
       <div id="connection"></div>
     </div>
     <div class="player-name-control" title="Your multiplayer display name">
@@ -27,10 +28,9 @@
       <input id="playerNameInput" maxlength="20" autocomplete="nickname" spellcheck="false" placeholder="Your name">
     </div>
     <div id="modeButtons">
-      <button id="sandboxButton" class="active">1P SANDBOX</button>
-      <button id="rosterButton" class="roster-button">1P ROSTER</button>
-      <button id="onePlayerDraftButton">1P vs AI</button>
-      <button id="pvpButton">2P BATTLE</button>
+      <button id="rosterButton" class="roster-button active">1P ROSTER</button>
+      <button id="onePlayerDraftButton">1P DRAFT</button>
+      <button id="pvpButton">2P DRAFT</button>
       <button id="rankedButton" class="ranked-mode-button">2P RANKED</button>
     </div>
   </header>
@@ -88,13 +88,13 @@
       </div>
 
       <div class="panel network hidden" id="networkPanel">
-        <div class="panel-heading"><h3 id="networkPanelTitle">2P Battle Lobby</h3><span id="lobbyConnectionBadge" class="lobby-badge">CONNECTING…</span></div>
-        <div id="rankedLobbyNotice" class="ranked-lobby-notice hidden"><strong>RANKED MATCH</strong><span>Verified wins and losses are recorded to the public ROS2 ladder by username and battle format.</span></div>
+        <div class="panel-heading"><h3 id="networkPanelTitle">2P Draft Lobby</h3><span id="lobbyConnectionBadge" class="lobby-badge">CONNECTING…</span></div>
+        <div id="rankedLobbyNotice" class="ranked-lobby-notice hidden"><strong>RANKED MATCH</strong><span>Verified wins, draws, and losses are recorded to the public ROS2 ladder by username and battle format.</span></div>
 
         <div class="lobby-config-block" id="hostConfigBlock">
           <div class="lobby-config-title"><strong>HOST MATCH CONFIG</strong><span id="lobbyConfigLockText">Choose before creating a room.</span></div>
           <div class="network-team-size-grid">
-            <button type="button" data-network-team-size="1">1v1</button><button type="button" data-network-team-size="2">2v2</button><button type="button" data-network-team-size="3" class="selected">3v3</button><button type="button" data-network-team-size="4">4v4</button><button type="button" data-network-team-size="5">5v5</button>
+            <button type="button" data-network-team-size="2">2v2</button><button type="button" data-network-team-size="3" class="selected">3v3</button><button type="button" data-network-team-size="4">4v4</button><button type="button" data-network-team-size="5">5v5</button>
           </div>
           <div class="network-replay-config">
             <span>HOST REPLAY SPEED</span>
@@ -143,7 +143,7 @@
 
 <div id="matchSetupModal" class="roster-modal hidden" aria-hidden="true">
   <div class="roster-modal-card setup-card">
-    <div class="panel-heading"><h3>1P vs AI — Battle Setup</h3><button id="closeMatchSetupButton">CLOSE</button></div>
+    <div class="panel-heading"><h3>1P Draft — Battle Setup</h3><button id="closeMatchSetupButton">CLOSE</button></div>
     <p class="roster-help">Choose a battle size. The draft begins immediately after confirmation. Combat rules, battlefield size and the two-minute planning timer remain unchanged.</p>
     <div class="team-size-grid">
       <button data-team-size="1">1v1</button><button data-team-size="2">2v2</button><button data-team-size="3" class="selected">3v3</button><button data-team-size="4">4v4</button><button data-team-size="5">5v5</button>
@@ -192,7 +192,15 @@
         <tbody id="rankingsBody"><tr><td colspan="6">Loading…</td></tr></tbody>
       </table>
     </div>
-    <div class="rankings-foot" id="rankingsFoot">Format ratings use Elo (1500 initial rating, K=32). Only completed 2P Ranked matches verified by both clients are counted.</div>
+    <div class="rankings-foot" id="rankingsFoot">Format ratings use Elo (1500 initial rating, K=32). Ranked records use W-D-L; mutually agreed draws count as 0.5 for Elo.</div>
+  </div>
+</div>
+
+<div id="drawProposalModal" class="roster-modal draw-proposal-modal hidden" aria-hidden="true">
+  <div class="roster-modal-card draw-proposal-card">
+    <div class="panel-heading"><h3>DRAW PROPOSAL</h3></div>
+    <p id="drawProposalText" class="draw-proposal-text">Your opponent has proposed ending this match as a draw.</p>
+    <div class="draw-proposal-actions"><button id="declineDrawButton" type="button">DECLINE</button><button id="acceptDrawButton" type="button" class="primary">ACCEPT DRAW</button></div>
   </div>
 </div>
 
@@ -211,7 +219,7 @@
       <div class="match-stats-head"><h3>CHAMPION STATISTICS</h3><span id="matchRoundCount"></span></div>
       <div class="match-stats-wrap"><table class="match-stats-table"><thead><tr><th>Champion</th><th>Side</th><th>Damage</th><th>Kills</th><th>Healing</th><th>Best Round</th></tr></thead><tbody id="matchStatsBody"></tbody></table></div>
     </section>
-    <div class="match-result-actions"><button id="matchResultViewButton">VIEW FINAL BATTLEFIELD</button><button id="matchResultRematchButton" class="primary hidden">REQUEST REMATCH</button><button id="matchResultSandboxButton" class="primary">NEW 1P SANDBOX</button></div>
+    <div class="match-result-actions"><button id="matchResultViewButton">VIEW FINAL BATTLEFIELD</button><button id="matchResultRematchButton" class="primary hidden">REQUEST REMATCH</button><button id="matchResultRosterButton" class="primary">NEW 1P ROSTER</button></div>
   </div>
 </div>
 

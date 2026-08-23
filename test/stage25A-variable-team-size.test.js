@@ -118,10 +118,11 @@ test('Stage25A victory completes only when the final opposing champion is KO in 
   assert.equal(sim.state.outcome.winner,SIDE.A);
 });
 
-test('Stage25A client exposes quick sandbox/roster plus 1P vs AI and 2P Battle, with dynamic action counter',()=>{
+test('Stage25A client exposes 1P Roster, 1P Draft and 2P Draft with dynamic action counter',()=>{
   const html=readFileSync(new URL('../client/index.html',import.meta.url),'utf8');
   const scene=readFileSync(new URL('../client/ros2-scene.js',import.meta.url),'utf8');
-  for(const label of ['1P SANDBOX','1P ROSTER','1P vs AI','2P BATTLE','1v1','2v2','3v3','4v4','5v5'])assert.match(html,new RegExp(label.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')));
+  for(const label of ['1P ROSTER','1P DRAFT','2P DRAFT','1v1','2v2','3v3','4v4','5v5'])assert.match(html,new RegExp(label.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')));
+  assert.doesNotMatch(html,/id="sandboxButton"|>1P SANDBOX</);
   assert.match(html,/assignedCount[^>]*>0 \/ 0</);
   for(let i=0;i<5;i++){assert.match(html,new RegExp(`id=\"teamA${i}\"`));assert.match(html,new RegExp(`id=\"teamB${i}\"`));}
   for(const n of [1,2,3,4,5])assert.match(html,new RegExp(`data-roster-team-size=\"${n}\"`));

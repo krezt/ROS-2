@@ -3,6 +3,7 @@ const crypto = require('crypto');
 const path = require('path');
 const { WebSocketServerLite, OPEN } = require('./ws-lite.cjs');
 const { RankedLadder } = require('./ranked-ladder.cjs');
+const { createSupabaseStoreFromEnv } = require('./ranked-store.cjs');
 
 (async () => {
   const { RoundCoordinator, MatchRoom } = await import('../src/round-coordinator.js');
@@ -10,13 +11,29 @@ const { RankedLadder } = require('./ranked-ladder.cjs');
   const { createNetworkDraftState, applyNetworkDraftAction, networkDraftSnapshot, networkDraftComplete } = await import('./network-draft.mjs');
   const ladderFile=process.env.ROS2_LADDER_FILE||path.join(__dirname,'data','ranked-ladder.json');
   const rankedLadder=new RankedLadder({filePath:ladderFile});
+  const durableFile=String(process.env.ROS2_LADDER_DURABLE_FILE??'').toLowerCase()==='true';
+  let remoteLadderStore=null,remoteLadderHydrated=false,remoteLadderStatus={configured:false,loaded:false,persisted:false,error:null};
+  try{
+    remoteLadderStore=createSupabaseStoreFromEnv(process.env);
+    if(remoteLadderStore){
+      const hydrated=await rankedLadder.hydrateFromRemote(remoteLadderStore);
+      remoteLadderHydrated=true;remoteLadderStatus={...remoteLadderStatus,...hydrated,persisted:true,error:null};
+      console.log(`[RANKED] durable Supabase storage enabled (${remoteLadderStore.table}/${remoteLadderStore.rowId})`);
+    }else if(process.env.RENDER){
+      console.warn('[RANKED] WARNING: Render local files are ephemeral. Configure SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY (recommended for Free) or a paid persistent disk, otherwise standings can disappear after spin-down/restart.');
+    }
+  }catch(err){
+    remoteLadderStatus={configured:true,loaded:false,persisted:false,error:err.message||'REMOTE_LADDER_INIT_FAILED'};
+    console.warn(`[RANKED] durable storage initialization failed: ${remoteLadderStatus.error}`);
+  }
+  const rankedPersistence=()=>({mode:remoteLadderStore?'supabase':(durableFile?'persistent-file':'file'),durable:remoteLadderStore?(remoteLadderHydrated&&!remoteLadderStatus.error):durableFile,remoteConfigured:!!remoteLadderStatus.configured,remoteHealthy:remoteLadderStore?(remoteLadderHydrated&&!remoteLadderStatus.error):false,error:remoteLadderStatus.error});
 
   const server = http.createServer((req,res)=>{
     const pathname=new URL(req.url,'http://localhost').pathname;
     res.setHeader('access-control-allow-origin','*');
-    if(pathname==='/health'){res.setHeader('content-type','application/json; charset=utf-8');res.writeHead(200);res.end(JSON.stringify({ok:true,protocol:'ros2-protocol-1',stage:'25Q',rankedLadder:true,separateFormatRatings:true,championWinRates:true}));return;}
+    if(pathname==='/health'){res.setHeader('content-type','application/json; charset=utf-8');res.writeHead(200);res.end(JSON.stringify({ok:true,protocol:'ros2-protocol-1',stage:'25S',rankedLadder:true,separateFormatRatings:true,championWinRates:true,rankedDraws:true,drawProposals:true,rankedPersistence:rankedPersistence()}));return;}
     if(pathname==='/rankings'){res.setHeader('content-type','application/json; charset=utf-8');res.writeHead(200);res.end(JSON.stringify(rankedLadder.snapshot()));return;}
-    if(pathname==='/'){res.setHeader('content-type','text/plain; charset=utf-8');res.writeHead(200);res.end('ROS 2.0 coordinator OK — Stage 25Q format ratings + champion analytics');return;}
+    if(pathname==='/'){res.setHeader('content-type','text/plain; charset=utf-8');res.writeHead(200);res.end('ROS 2.0 coordinator OK — Stage 25S durable ranked persistence');return;}
     res.setHeader('content-type','application/json; charset=utf-8');res.writeHead(404);res.end(JSON.stringify({ok:false,error:'NOT_FOUND'}));
   });
   const wss=new WebSocketServerLite({server,path:'/ws'}),rooms=new Map();let serverSequence=0;
@@ -36,11 +53,11 @@ const { RankedLadder } = require('./ranked-ladder.cjs');
   function playerNames(room){const names={};for(const peer of room.sockets.values())if(peer._side)names[peer._side]=normalizePlayerName(peer._displayName);return names;}
   function roomSummary(room){const teamSize=room.config.teamSize,names=playerNames(room);return{id:room.id,hostName:names.A??'Player',players:room.matchRoom.players.size,maxPlayers:2,started:!!room.coordinator,configLocked:room.configLocked,teamSize,format:`${teamSize}v${teamSize}`,draftBansPerPlayer:room.config.draftBansPerPlayer,replaySpeed:room.config.replaySpeed,ranked:!!room.config.ranked,draftPhase:room.draft?.phase??null,matchNumber:room.matchNumber,status:phaseOf(room)};}
   function broadcastRooms(){const payload={kind:'rooms',rooms:[...rooms.values()].map(roomSummary),serverSequence:nextSequence()};for(const ws of wss.clients)send(ws,payload);}
-  function createRoom(id=randId(),config={}){if(rooms.has(id))throw new Error('ROOM_EXISTS');const room={id,matchRoom:new MatchRoom({id}),sockets:new Map(),coordinator:null,draft:null,matchId:null,matchNumber:0,timeoutsRemaining:{A:3,B:3},config:normalizeRoomConfig(config),configLocked:false,roundReadySides:new Set(),matchCompleteReports:new Map(),matchComplete:null,matchPlayerNames:null,matchTeams:null,rematchVotes:new Set()};rooms.set(id,room);return room;}
+  function createRoom(id=randId(),config={}){if(rooms.has(id))throw new Error('ROOM_EXISTS');const room={id,matchRoom:new MatchRoom({id}),sockets:new Map(),coordinator:null,draft:null,matchId:null,matchNumber:0,timeoutsRemaining:{A:3,B:3},config:normalizeRoomConfig(config),configLocked:false,roundReadySides:new Set(),matchCompleteReports:new Map(),matchComplete:null,matchPlayerNames:null,matchTeams:null,rematchVotes:new Set(),drawProposal:null};rooms.set(id,room);return room;}
   function broadcastDraftState(room){if(room.draft)broadcastRoom(room,{kind:'draft_state',roomId:room.id,config:{...room.config},state:networkDraftSnapshot(room.draft),serverSequence:nextSequence()});}
   function beginNetworkDraft(room,{rematch=false}={}){if(!room.configLocked||!room.matchRoom.isReady())throw new Error('ROOM_NOT_READY');if(room.draft||room.coordinator)return;room.draft=createNetworkDraftState(room.config);if(rematch)broadcastRoom(room,{kind:'rematch_start',roomId:room.id,config:{...room.config},matchNumber:room.matchNumber+1,serverSequence:nextSequence()});broadcastDraftState(room);broadcastRooms();}
   function resetRoundHandshake(room){room.roundReadySides.clear();room.matchCompleteReports.clear();}
-  function finalizeNetworkDraft(room){if(!room.draft||!networkDraftComplete(room.draft))throw new Error('DRAFT_NOT_COMPLETE');if(room.coordinator)return;room.matchNumber+=1;room.matchId=`${room.id}-M${room.matchNumber}-${randId(6)}`;room.coordinator=new RoundCoordinator({matchId:room.matchId,protocolVersion:PROTOCOL_VERSION,rulesetVersion:RULESET_VERSION});room.timeoutsRemaining={A:3,B:3};room.matchComplete=null;room.matchPlayerNames=Object.freeze({...playerNames(room)});room.rematchVotes.clear();resetRoundHandshake(room);const snapshot=networkDraftSnapshot(room.draft);room.matchTeams=Object.freeze({A:Object.freeze([...snapshot.picks.A]),B:Object.freeze([...snapshot.picks.B])});broadcastRoom(room,{kind:'draft_complete',roomId:room.id,state:snapshot,serverSequence:nextSequence()});broadcastRoom(room,{kind:'match_started',roomId:room.id,matchId:room.matchId,matchNumber:room.matchNumber,config:{...room.config},teamA:[...snapshot.picks.A],teamB:[...snapshot.picks.B],timeoutsRemaining:{...room.timeoutsRemaining},playerNames:{...room.matchPlayerNames},roundNumber:1,serverSequence:nextSequence()});broadcastRooms();}
+  function finalizeNetworkDraft(room){if(!room.draft||!networkDraftComplete(room.draft))throw new Error('DRAFT_NOT_COMPLETE');if(room.coordinator)return;room.matchNumber+=1;room.matchId=`${room.id}-M${room.matchNumber}-${randId(6)}`;room.coordinator=new RoundCoordinator({matchId:room.matchId,protocolVersion:PROTOCOL_VERSION,rulesetVersion:RULESET_VERSION});room.timeoutsRemaining={A:3,B:3};room.matchComplete=null;room.matchPlayerNames=Object.freeze({...playerNames(room)});room.rematchVotes.clear();room.drawProposal=null;resetRoundHandshake(room);const snapshot=networkDraftSnapshot(room.draft);room.matchTeams=Object.freeze({A:Object.freeze([...snapshot.picks.A]),B:Object.freeze([...snapshot.picks.B])});broadcastRoom(room,{kind:'draft_complete',roomId:room.id,state:snapshot,serverSequence:nextSequence()});broadcastRoom(room,{kind:'match_started',roomId:room.id,matchId:room.matchId,matchNumber:room.matchNumber,config:{...room.config},teamA:[...snapshot.picks.A],teamB:[...snapshot.picks.B],timeoutsRemaining:{...room.timeoutsRemaining},playerNames:{...room.matchPlayerNames},roundNumber:1,serverSequence:nextSequence()});broadcastRooms();}
   function handleDraftAction(ws,room,msg){if(!room.configLocked||!room.draft)throw new Error('DRAFT_NOT_STARTED');if(room.coordinator)throw new Error('DRAFT_ALREADY_COMPLETE');applyNetworkDraftAction(room.draft,{side:ws._side,kind:msg.kind,archetype:msg.archetype});broadcastDraftState(room);if(networkDraftComplete(room.draft))finalizeNetworkDraft(room);}
   function clearRoomMembership(ws){ws._roomId=null;ws._side=null;}
   function leave(ws,reason='PLAYER_LEFT'){const room=ws._roomId?rooms.get(ws._roomId):null;if(!room){clearRoomMembership(ws);return;}const departedSide=room.matchRoom.removePlayer(ws._playerId);room.sockets.delete(ws._playerId);clearRoomMembership(ws);if(room.configLocked||departedSide==='A'){const during=phaseOf(room);for(const peer of room.sockets.values()){send(peer,{kind:'opponent_disconnected',roomId:room.id,during,configLocked:true,canRematch:false,serverSequence:nextSequence()});send(peer,{kind:'room_closed',roomId:room.id,reason,serverSequence:nextSequence()});clearRoomMembership(peer);}rooms.delete(room.id);return;}if(room.sockets.size===0)rooms.delete(room.id);}
@@ -48,16 +65,61 @@ const { RankedLadder } = require('./ranked-ladder.cjs');
   function updateRoomConfig(ws,room,msg){if(ws._side!=='A')throw new Error('ONLY_HOST_MAY_CONFIGURE');if(room.configLocked||room.matchRoom.players.size!==1)throw new Error('ROOM_CONFIG_LOCKED');room.config=normalizeRoomConfig({teamSize:msg.teamSize??room.config.teamSize,draftBansPerPlayer:msg.draftBansPerPlayer??room.config.draftBansPerPlayer,replaySpeed:msg.replaySpeed??room.config.replaySpeed,ranked:room.config.ranked});broadcastRoom(room,{kind:'room_config_updated',roomId:room.id,config:{...room.config},configLocked:false,serverSequence:nextSequence()});broadcastRooms();}
   function validateConfirmedHashes(room,msg){const c=room.coordinator;if(!c||c.status!=='CONFIRMED'||!c.confirmation)throw new Error('ROUND_NOT_CONFIRMED');if(Number(msg.roundNumber)!==c.roundNumber)throw new Error('ROUND_NUMBER_MISMATCH');if(msg.finalStateHash&&msg.finalStateHash!==c.confirmation.finalStateHash)throw new Error('FINAL_STATE_HASH_MISMATCH');if(msg.eventStreamHash&&msg.eventStreamHash!==c.confirmation.eventStreamHash)throw new Error('EVENT_STREAM_HASH_MISMATCH');return c;}
   function handleRoundReady(ws,room,msg){const c=validateConfirmedHashes(room,msg);if(room.matchCompleteReports.size>0||room.matchComplete)throw new Error('MATCH_COMPLETION_IN_PROGRESS');room.roundReadySides.add(ws._side);broadcastRoom(room,{kind:'round_ready_status',roomId:room.id,roundNumber:c.roundNumber,readySides:[...room.roundReadySides].sort(),serverSequence:nextSequence()});if(room.roundReadySides.size<2)return;const n=c.nextRound();resetRoundHandshake(room);broadcastRoom(room,{kind:'round_open',roundNumber:n,serverSequence:nextSequence()});}
-  function handleMatchComplete(ws,room,msg){const c=validateConfirmedHashes(room,msg),winner=String(msg.winner??'');if(winner!=='A'&&winner!=='B')throw new Error('INVALID_MATCH_WINNER');const report=Object.freeze({side:ws._side,roundNumber:c.roundNumber,winner,finalStateHash:c.confirmation.finalStateHash,eventStreamHash:c.confirmation.eventStreamHash});room.matchCompleteReports.set(ws._side,report);send(ws,{kind:'match_complete_received',roundNumber:c.roundNumber,waitingForOpponent:room.matchCompleteReports.size<2,serverSequence:nextSequence()});if(room.matchCompleteReports.size<2)return;const a=room.matchCompleteReports.get('A'),b=room.matchCompleteReports.get('B');if(a.winner!==b.winner||a.finalStateHash!==b.finalStateHash||a.eventStreamHash!==b.eventStreamHash){broadcastRoom(room,{kind:'match_desync',reason:'MATCH_COMPLETE_REPORT_MISMATCH',serverSequence:nextSequence()});c.halt('MATCH_COMPLETE_REPORT_MISMATCH');return;}room.matchComplete=Object.freeze({matchId:room.matchId,matchNumber:room.matchNumber,roundNumber:c.roundNumber,winner:a.winner,finalStateHash:a.finalStateHash,eventStreamHash:a.eventStreamHash});let rankedResult=null;if(room.config.ranked){const names=room.matchPlayerNames??playerNames(room),format=`${room.config.teamSize}v${room.config.teamSize}`;const teams=room.matchTeams??{A:[],B:[]};rankedResult=rankedLadder.recordMatch({matchId:room.matchId,format,playerA:names.A,playerB:names.B,winnerSide:a.winner,teamA:teams.A,teamB:teams.B});if(rankedResult.recorded){const update={kind:'rankings_updated',standings:rankedResult.standings,serverSequence:nextSequence()};for(const peer of wss.clients)send(peer,update);}broadcastRoom(room,{kind:'ranked_match_recorded',roomId:room.id,matchId:room.matchId,format,winner:a.winner,playerNames:{...names},standings:rankedResult.standings,serverSequence:nextSequence()});}broadcastRoom(room,{kind:'match_complete_confirmed',roomId:room.id,...room.matchComplete,ranked:!!room.config.ranked,rematchAvailable:true,serverSequence:nextSequence()});broadcastRooms();}
-  function handleRematchRequest(ws,room){if(!room.matchComplete)throw new Error('REMATCH_NOT_AVAILABLE');if(!room.matchRoom.isReady())throw new Error('ROOM_NOT_READY');room.rematchVotes.add(ws._side);broadcastRoom(room,{kind:'rematch_status',roomId:room.id,votes:[...room.rematchVotes].sort(),required:2,serverSequence:nextSequence()});if(room.rematchVotes.size<2)return;room.coordinator=null;room.draft=null;room.matchId=null;room.matchComplete=null;room.matchTeams=null;room.rematchVotes.clear();resetRoundHandshake(room);beginNetworkDraft(room,{rematch:true});}
+  async function broadcastRankedResult(room,{winnerSide,draw=false}){
+    if(!room.config.ranked)return null;
+    const names=room.matchPlayerNames??playerNames(room),format=`${room.config.teamSize}v${room.config.teamSize}`,teams=room.matchTeams??{A:[],B:[]};
+    const rankedResult=rankedLadder.recordMatch({matchId:room.matchId,format,playerA:names.A,playerB:names.B,winnerSide,teamA:teams.A,teamB:teams.B});
+    let persistence={...rankedPersistence()};
+    if(rankedResult.recorded&&remoteLadderStore){
+      try{
+        await rankedLadder.persistRemote(remoteLadderStore);
+        remoteLadderStatus={...remoteLadderStatus,persisted:true,error:null};
+      }catch(err){
+        remoteLadderStatus={...remoteLadderStatus,persisted:false,error:err.message||'REMOTE_LADDER_SAVE_FAILED'};
+        console.warn(`[RANKED] durable save failed for ${room.matchId}: ${remoteLadderStatus.error}`);
+      }
+      persistence={...rankedPersistence()};
+    }
+    if(rankedResult.recorded){const update={kind:'rankings_updated',standings:rankedResult.standings,persistence,serverSequence:nextSequence()};for(const peer of wss.clients)send(peer,update);}
+    broadcastRoom(room,{kind:'ranked_match_recorded',roomId:room.id,matchId:room.matchId,format,winner:draw?null:winnerSide,draw,playerNames:{...names},standings:rankedResult.standings,persistence,serverSequence:nextSequence()});
+    return {...rankedResult,persistence};
+  }
+  async function handleMatchComplete(ws,room,msg){
+    const c=validateConfirmedHashes(room,msg),winner=String(msg.winner??'');if(winner!=='A'&&winner!=='B')throw new Error('INVALID_MATCH_WINNER');
+    const report=Object.freeze({side:ws._side,roundNumber:c.roundNumber,winner,finalStateHash:c.confirmation.finalStateHash,eventStreamHash:c.confirmation.eventStreamHash});room.matchCompleteReports.set(ws._side,report);
+    send(ws,{kind:'match_complete_received',roundNumber:c.roundNumber,waitingForOpponent:room.matchCompleteReports.size<2,serverSequence:nextSequence()});if(room.matchCompleteReports.size<2)return;
+    const a=room.matchCompleteReports.get('A'),b=room.matchCompleteReports.get('B');if(a.winner!==b.winner||a.finalStateHash!==b.finalStateHash||a.eventStreamHash!==b.eventStreamHash){broadcastRoom(room,{kind:'match_desync',reason:'MATCH_COMPLETE_REPORT_MISMATCH',serverSequence:nextSequence()});c.halt('MATCH_COMPLETE_REPORT_MISMATCH');return;}
+    room.drawProposal=null;room.matchComplete=Object.freeze({matchId:room.matchId,matchNumber:room.matchNumber,roundNumber:c.roundNumber,winner:a.winner,draw:false,finalStateHash:a.finalStateHash,eventStreamHash:a.eventStreamHash});
+    await broadcastRankedResult(room,{winnerSide:a.winner,draw:false});
+    broadcastRoom(room,{kind:'match_complete_confirmed',roomId:room.id,...room.matchComplete,ranked:!!room.config.ranked,rematchAvailable:true,serverSequence:nextSequence()});broadcastRooms();
+  }
+  async function finalizeAgreedDraw(room){
+    if(room.matchComplete)throw new Error('MATCH_ALREADY_COMPLETE');const c=room.coordinator;if(!c)throw new Error('MATCH_NOT_STARTED');
+    const proposal=room.drawProposal;if(!proposal)throw new Error('NO_DRAW_PROPOSAL');room.drawProposal=null;c.halt('DRAW_AGREED');room.roundReadySides.clear();room.matchCompleteReports.clear();
+    room.matchComplete=Object.freeze({matchId:room.matchId,matchNumber:room.matchNumber,roundNumber:c.roundNumber,winner:null,draw:true,finalStateHash:c.confirmation?.finalStateHash??null,eventStreamHash:c.confirmation?.eventStreamHash??null});
+    await broadcastRankedResult(room,{winnerSide:'DRAW',draw:true});
+    broadcastRoom(room,{kind:'draw_accepted',roomId:room.id,acceptedBy:proposal.proposedBy==='A'?'B':'A',proposedBy:proposal.proposedBy,serverSequence:nextSequence()});
+    broadcastRoom(room,{kind:'match_complete_confirmed',roomId:room.id,...room.matchComplete,ranked:!!room.config.ranked,rematchAvailable:true,serverSequence:nextSequence()});broadcastRooms();
+  }
+  async function handleDrawProposal(ws,room){
+    const c=room.coordinator;if(!c)throw new Error('MATCH_NOT_STARTED');if(room.matchComplete)throw new Error('MATCH_ALREADY_COMPLETE');if(c.status!=='COLLECTING')throw new Error('DRAW_PROPOSAL_ONLY_DURING_PLANNING');if(c.submissions.size>0)throw new Error('DRAW_PROPOSAL_ONLY_BEFORE_LOCK');
+    if(room.drawProposal){if(room.drawProposal.proposedBy!==ws._side)return await finalizeAgreedDraw(room);throw new Error('DRAW_PROPOSAL_PENDING');}
+    room.drawProposal=Object.freeze({proposedBy:ws._side,createdAt:Date.now()});broadcastRoom(room,{kind:'draw_proposed',roomId:room.id,proposedBy:ws._side,playerNames:{...(room.matchPlayerNames??playerNames(room))},serverSequence:nextSequence()});
+  }
+  async function handleDrawResponse(ws,room,msg){
+    const proposal=room.drawProposal;if(!proposal)throw new Error('NO_DRAW_PROPOSAL');if(proposal.proposedBy===ws._side)throw new Error('DRAW_PROPOSER_CANNOT_RESPOND');
+    if(msg.accept===true)return await finalizeAgreedDraw(room);
+    room.drawProposal=null;broadcastRoom(room,{kind:'draw_declined',roomId:room.id,declinedBy:ws._side,serverSequence:nextSequence()});
+  }
+  function handleRematchRequest(ws,room){if(!room.matchComplete)throw new Error('REMATCH_NOT_AVAILABLE');if(!room.matchRoom.isReady())throw new Error('ROOM_NOT_READY');room.rematchVotes.add(ws._side);broadcastRoom(room,{kind:'rematch_status',roomId:room.id,votes:[...room.rematchVotes].sort(),required:2,serverSequence:nextSequence()});if(room.rematchVotes.size<2)return;room.coordinator=null;room.draft=null;room.matchId=null;room.matchComplete=null;room.matchTeams=null;room.rematchVotes.clear();room.drawProposal=null;resetRoundHandshake(room);beginNetworkDraft(room,{rematch:true});}
 
   wss.on('connection',ws=>{
     ws._playerId=randId(12);ws._roomId=null;ws._side=null;ws._displayName='Player';ws._lastChatAt=0;ws.isAlive=true;send(ws,{kind:'hello_ack',playerId:ws._playerId,serverSequence:nextSequence()});ws.on('pong',()=>{ws.isAlive=true;});
-    ws.on('message',raw=>{let msg;try{msg=JSON.parse(String(raw));}catch{return send(ws,{kind:'error',code:'BAD_JSON',serverSequence:nextSequence()});}try{
+    ws.on('message',async raw=>{let msg;try{msg=JSON.parse(String(raw));}catch{return send(ws,{kind:'error',code:'BAD_JSON',serverSequence:nextSequence()});}try{
       if(msg.kind==='list_rooms')return send(ws,{kind:'rooms',rooms:[...rooms.values()].map(roomSummary),serverSequence:nextSequence()});
       if(msg.kind==='get_rankings')return send(ws,{kind:'rankings',standings:rankedLadder.snapshot(),serverSequence:nextSequence()});
       if(msg.kind==='set_player_name'){const namedRoom=ws._roomId?rooms.get(ws._roomId):null;if(namedRoom?.config?.ranked&&namedRoom.configLocked)throw new Error('RANKED_NAME_LOCKED');ws._displayName=normalizePlayerName(msg.playerName);if(namedRoom){broadcastRoom(namedRoom,{kind:'player_names',roomId:namedRoom.id,playerNames:playerNames(namedRoom),serverSequence:nextSequence()});broadcastRooms();}return;}
-      if(msg.kind==='create_room'){ws._displayName=normalizePlayerName(msg.playerName??ws._displayName);if(msg.ranked===true&&!rankedNameAllowed(ws._displayName))throw new Error('RANKED_NAME_REQUIRED');const room=createRoom(msg.id?String(msg.id):undefined,{teamSize:msg.teamSize,draftBansPerPlayer:msg.draftBansPerPlayer,replaySpeed:msg.replaySpeed,ranked:msg.ranked});join(ws,room);return;}
+      if(msg.kind==='create_room'){ws._displayName=normalizePlayerName(msg.playerName??ws._displayName);if(msg.ranked===true&&remoteLadderStore&&!remoteLadderHydrated)throw new Error('RANKED_STORAGE_UNAVAILABLE');if(msg.ranked===true&&!rankedNameAllowed(ws._displayName))throw new Error('RANKED_NAME_REQUIRED');const room=createRoom(msg.id?String(msg.id):undefined,{teamSize:msg.teamSize,draftBansPerPlayer:msg.draftBansPerPlayer,replaySpeed:msg.replaySpeed,ranked:msg.ranked});join(ws,room);return;}
       if(msg.kind==='join_room'){ws._displayName=normalizePlayerName(msg.playerName??ws._displayName);const room=rooms.get(String(msg.id||''));if(!room)throw new Error('ROOM_NOT_FOUND');join(ws,room);return;}
       if(msg.kind==='leave_room'){leave(ws,'PLAYER_LEFT');broadcastRooms();return;}
       const room=ws._roomId?rooms.get(ws._roomId):null;
@@ -70,19 +132,21 @@ const { RankedLadder } = require('./ranked-ladder.cjs');
       if(msg.kind==='update_room_config'){if(!room)throw new Error('NOT_IN_ROOM');updateRoomConfig(ws,room,msg);return;}
       if(msg.kind==='draft_ban'||msg.kind==='draft_pick'){if(!room)throw new Error('NOT_IN_ROOM');handleDraftAction(ws,room,msg);return;}
       if(msg.kind==='request_rematch'){if(!room)throw new Error('NOT_IN_ROOM');handleRematchRequest(ws,room);return;}
+      if(msg.kind==='propose_draw'){if(!room)throw new Error('NOT_IN_ROOM');await handleDrawProposal(ws,room);return;}
+      if(msg.kind==='respond_draw'){if(!room)throw new Error('NOT_IN_ROOM');await handleDrawResponse(ws,room,msg);return;}
       if(!room||!room.coordinator)throw new Error('MATCH_NOT_STARTED');const c=room.coordinator;if(room.matchComplete)throw new Error('MATCH_ALREADY_COMPLETE');
       if(msg.kind==='selection_timeout_request'){if(c.status!=='COLLECTING')throw new Error('TIMEOUT_NOT_AVAILABLE');if(c.submissions.has(ws._side))throw new Error('SIDE_ALREADY_LOCKED');const remaining=room.timeoutsRemaining[ws._side]??0;if(remaining<=0)throw new Error('NO_TIMEOUTS_REMAINING');room.timeoutsRemaining[ws._side]=remaining-1;broadcastRoom(room,{kind:'selection_timeout_granted',roundNumber:c.roundNumber,requestedBySide:ws._side,extraMs:60000,remainingBySide:{...room.timeoutsRemaining},serverSequence:nextSequence()});return;}
-      if(msg.kind==='round_declarations'){if(room.matchCompleteReports.size>0)throw new Error('MATCH_COMPLETION_IN_PROGRESS');const ack=c.submitDeclarations(ws._side,msg.declarations,{lockedAtServerSequence:nextSequence()});send(ws,{kind:'round_declarations_locked',side:ws._side,roundNumber:c.roundNumber,waitingForOpponent:ack.waitingForOpponent,serverSequence:nextSequence()});if(c.canReleaseRound()){const pkg=c.releaseRoundPackage({deadlineMetadata:msg.deadlineMetadata??null});broadcastRoom(room,{kind:'round_package',package:pkg,serverSequence:nextSequence()});}return;}
+      if(msg.kind==='round_declarations'){if(room.matchCompleteReports.size>0)throw new Error('MATCH_COMPLETION_IN_PROGRESS');if(room.drawProposal){room.drawProposal=null;broadcastRoom(room,{kind:'draw_declined',roomId:room.id,declinedBy:null,reason:'ROUND_LOCKED',serverSequence:nextSequence()});}const ack=c.submitDeclarations(ws._side,msg.declarations,{lockedAtServerSequence:nextSequence()});send(ws,{kind:'round_declarations_locked',side:ws._side,roundNumber:c.roundNumber,waitingForOpponent:ack.waitingForOpponent,serverSequence:nextSequence()});if(c.canReleaseRound()){const pkg=c.releaseRoundPackage({deadlineMetadata:msg.deadlineMetadata??null});broadcastRoom(room,{kind:'round_package',package:pkg,serverSequence:nextSequence()});}return;}
       if(msg.kind==='round_digest'){const result=c.submitDigest(ws._side,msg.digest);if(result.kind==='round_confirmed'){room.roundReadySides.clear();room.matchCompleteReports.clear();broadcastRoom(room,{...result,serverSequence:nextSequence()});}else if(result.kind==='round_desync'){broadcastRoom(room,{...result,serverSequence:nextSequence()});c.halt('DESYNC');}else send(ws,{kind:'round_digest_received',roundNumber:c.roundNumber,waitingForOpponent:true,serverSequence:nextSequence()});return;}
       if(msg.kind==='round_ready'){handleRoundReady(ws,room,msg);return;}
-      if(msg.kind==='match_complete'){handleMatchComplete(ws,room,msg);return;}
+      if(msg.kind==='match_complete'){await handleMatchComplete(ws,room,msg);return;}
       if(msg.kind==='advance_round')throw new Error('ADVANCE_ROUND_REPLACED_BY_TWO_SIDE_READY');
       throw new Error('UNKNOWN_MESSAGE_KIND');
     }catch(err){send(ws,{kind:'error',code:err.message||'SERVER_ERROR',serverSequence:nextSequence()});}});
     ws.on('close',()=>{leave(ws,'SOCKET_CLOSED');broadcastRooms();});
   });
   const interval=setInterval(()=>{for(const ws of wss.clients){if(ws.isAlive===false){ws.terminate();continue;}ws.isAlive=false;try{ws.ping();}catch{}}},25000);interval.unref?.();
-  const PORT=Number(process.env.PORT||3000);server.listen(PORT,()=>{const actual=server.address()?.port??PORT;console.log(`ROS 2.0 Stage 25Q coordinator listening on ${actual}`);console.log(`[RANKED] ladder file: ${ladderFile}`);});
+  const PORT=Number(process.env.PORT||3000);server.listen(PORT,()=>{const actual=server.address()?.port??PORT;console.log(`ROS 2.0 Stage 25S coordinator listening on ${actual}`);console.log(`[RANKED] ladder file: ${ladderFile}`);console.log(`[RANKED] persistence: ${JSON.stringify(rankedPersistence())}`);});
   function shutdown(){clearInterval(interval);for(const ws of wss.clients)try{ws.terminate();}catch{}server.close(()=>process.exit(0));setTimeout(()=>process.exit(0),250).unref?.();}
   process.on('SIGTERM',shutdown);process.on('SIGINT',shutdown);
 })().catch(err=>{console.error(err);process.exitCode=1;});

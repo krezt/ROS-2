@@ -50,6 +50,8 @@ export class CoordinatorSocket {
   readyForNextRound({roundNumber,finalStateHash,eventStreamHash}){this.send('round_ready',{roundNumber,finalStateHash,eventStreamHash});}
   reportMatchComplete({roundNumber,winner,finalStateHash,eventStreamHash}){this.send('match_complete',{roundNumber,winner,finalStateHash,eventStreamHash});}
   requestRematch(){this.send('request_rematch');}
+  proposeDraw(){this.send('propose_draw');}
+  respondDraw(accept){this.send('respond_draw',{accept:accept===true});}
   sendChat(text){this.send('chat_message',{text:String(text??'').slice(0,240)});}
   leaveRoom(){this.send('leave_room');}
 }

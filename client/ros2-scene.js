@@ -152,7 +152,7 @@ export class RosBattleScene extends Phaser.Scene {
     this.input.on('pointermove',p=>this.onPointerMove(p));
     this.input.on('pointerdown',p=>this.onBoardPointer(p));
     this.input.keyboard?.on('keydown-ESC',()=>this.cancelTargeting());
-    this.startSinglePlayer();
+    this.startSinglePlayer({source:'roster'});
     window.rosScene=this;
   }
 
@@ -182,6 +182,17 @@ export class RosBattleScene extends Phaser.Scene {
     }catch{}
   }
 
+  showNetworkDraw(){
+    if(this.matchOutcomeShown)return;
+    this.matchOutcomeShown=true;this.busy=false;this.pendingAbility=null;this.setWaitingForOpponent(false);
+    if(this.timerHandle){clearInterval(this.timerHandle);this.timerHandle=null;}
+    const playerSide=this.playerSelectionSide(),stats=this.matchStats?.snapshot?.()??null;
+    this.setStatus('Draw by mutual agreement.');
+    this.log('DRAW — both players agreed to end the match.','system');
+    this.emitSelectionUi();this.updateTimeControl();
+    try{window.dispatchEvent(new CustomEvent('ros:match-complete',{detail:{result:'DRAW',winner:null,playerSide,stats}}));}catch{}
+  }
+
   currentState(){ return this.match?.state ?? this.stateView; }
   playerSelectionSide(){ return this.mode==='PVP' ? this.playerSide : SIDE.A; }
 
@@ -202,7 +213,7 @@ export class RosBattleScene extends Phaser.Scene {
     this.startSinglePlayer({source:'sandbox'});
   }
 
-  startSinglePlayer({source='sandbox'}={}){
+  startSinglePlayer({source='roster'}={}){
     this.mode='SINGLE_PLAYER';this.timeoutsRemaining=3;this.setWaitingForOpponent(false);this.setReplaySpeed(this.replaySpeed,{locked:false,notify:false});
     this.clearBattlefield();
     const {teamA,teamB}=this.singlePlayerTeams;
@@ -218,7 +229,7 @@ export class RosBattleScene extends Phaser.Scene {
 
   setMode(mode){
     this.mode=mode;
-    if(mode==='SINGLE_PLAYER') this.startSandbox();
+    if(mode==='SINGLE_PLAYER') this.startSinglePlayer({source:'roster'});
     else {
       this.clearBattlefield();this.match=null;this.session=null;this.selectedActorId=null;this.inspectedUnitId=null;this.pendingAbility=null;
       this.emitSelectionUi();this.updateTimeControl();
@@ -1910,8 +1921,11 @@ export class RosBattleScene extends Phaser.Scene {
 
   floatText(id,text,color,{xOffset=0,yOffset=0,duration=300}={}){
     const v=this.unitViews.get(id);if(!v)return Promise.resolve();
-    const t=this.add.text(v.container.x+xOffset,v.container.y-68+yOffset,String(text),{fontFamily:'monospace',fontSize:'14px',fontStyle:'bold',color,backgroundColor:'#05070aaa',padding:{x:3,y:1}}).setOrigin(.5);
-    return new Promise(resolve=>this.tweens.add({targets:t,y:t.y-22,alpha:0,duration:this.replayDuration(duration),onComplete:()=>{t.destroy();resolve();}}));
+    // Keep combat numbers readable even when a tall champion is pinned to the north/west/east wall.
+    // Phaser clips at the canvas boundary, so reserve the outer canvas margin instead of letting text begin off-canvas.
+    const x=Phaser.Math.Clamp(v.container.x+xOffset,26,824),startY=Math.max(16,v.container.y-68+yOffset),endY=Math.max(4,startY-22);
+    const t=this.add.text(x,startY,String(text),{fontFamily:'monospace',fontSize:'14px',fontStyle:'bold',color,backgroundColor:'#05070aaa',padding:{x:3,y:1}}).setOrigin(.5).setDepth(3000);
+    return new Promise(resolve=>this.tweens.add({targets:t,y:endY,alpha:0,duration:this.replayDuration(duration),onComplete:()=>{t.destroy();resolve();}}));
   }
 
   koUnit(id){

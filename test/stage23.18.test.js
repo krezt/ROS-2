@@ -110,7 +110,8 @@ test('counters after completed non-basic actions use plain Attack identity rathe
   assert.equal(sim.events.snapshot().some(e=>e.type===EVENT_TYPE.DAMAGE&&e.actorId==='H0'&&e.payload?.abilityId==='REGEN_POTION'),false);
 });
 
-test('top mode buttons are ordered 1P Sandbox, 1P Roster, then 2P Network',()=>{
+test('top mode buttons are ordered 1P Roster, 1P Draft, then multiplayer modes',()=>{
   const html=fs.readFileSync(new URL('../client/index.html',import.meta.url),'utf8');
-  assert.ok(html.indexOf('1P SANDBOX')<html.indexOf('1P ROSTER'));assert.ok(html.indexOf('1P ROSTER')<html.indexOf('2P NETWORK'));
+  assert.doesNotMatch(html,/id="sandboxButton"|>1P SANDBOX</);
+  assert.ok(html.indexOf('1P ROSTER')<html.indexOf('1P DRAFT'));assert.ok(html.indexOf('1P DRAFT')<html.indexOf('2P DRAFT'));
 });

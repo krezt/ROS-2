@@ -1,9 +1,9 @@
 {
   "name": "ros2-simulation-core",
-  "version": "0.25.17-stage25q-format-ratings-champion-analytics",
+  "version": "0.25.19-stage25s-durable-ranked-storage",
   "private": true,
   "type": "module",
-  "description": "Realm of Shinobi 2.0 deterministic combat \u2014 Stage 25Q separate format Elo ratings, champion win-rate analytics, and multiplayer validation",
+  "description": "Realm of Shinobi 2.0 deterministic combat \u2014 Stage 25S durable Ranked ladder persistence for Render free-tier spin-downs",
   "scripts": {
     "test": "node --test",
     "demo": "node demo/stage23-demo.js",

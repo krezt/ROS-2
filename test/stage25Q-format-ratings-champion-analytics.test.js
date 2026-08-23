@@ -53,7 +53,7 @@ test('version 1 ladder files migrate W/L and rebuild per-format ratings without 
   try{
     writeFileSync(file,JSON.stringify({version:1,updatedAt:'2026-08-22T00:00:00.000Z',players:{alpha:{name:'Alpha',wins:1,losses:0,formats:{'3v3':{wins:1,losses:0}}},beta:{name:'Beta',wins:0,losses:1,formats:{'3v3':{wins:0,losses:1}}}},recordedMatches:{OLD1:{format:'3v3',winnerSide:'A',playerA:'Alpha',playerB:'Beta',recordedAt:'2026-08-22T00:00:00.000Z'}}},null,2));
     const snap=new RankedLadder({filePath:file}).snapshot(),alpha=snap.players.find(p=>p.name==='Alpha'),beta=snap.players.find(p=>p.name==='Beta');
-    assert.equal(snap.version,2);assert.equal(alpha.formats['3v3'].rating,1516);assert.equal(beta.formats['3v3'].rating,1484);assert.deepEqual(snap.champions,[]);
+    assert.equal(snap.version,3);assert.equal(alpha.formats['3v3'].rating,1516);assert.equal(beta.formats['3v3'].rating,1484);assert.deepEqual(snap.champions,[]);
   }finally{rmSync(dir,{recursive:true,force:true});}
 });
 
