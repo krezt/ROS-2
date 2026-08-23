@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Realm of Shinobi 2.0 — Stage 25C</title>
+  <title>Realm of Shinobi 2.0 — Stage 25Q Ranked Ratings + Champion Analytics</title>
   <link rel="stylesheet" href="./styles.css">
   <script src="https://cdn.jsdelivr.net/npm/phaser@3.90.0/dist/phaser.js"></script>
 </head>
@@ -31,6 +31,7 @@
       <button id="rosterButton" class="roster-button">1P ROSTER</button>
       <button id="onePlayerDraftButton">1P vs AI</button>
       <button id="pvpButton">2P BATTLE</button>
+      <button id="rankedButton" class="ranked-mode-button">2P RANKED</button>
     </div>
   </header>
 
@@ -87,7 +88,8 @@
       </div>
 
       <div class="panel network hidden" id="networkPanel">
-        <div class="panel-heading"><h3>2P Battle Lobby</h3><span id="lobbyConnectionBadge" class="lobby-badge">CONNECTING…</span></div>
+        <div class="panel-heading"><h3 id="networkPanelTitle">2P Battle Lobby</h3><span id="lobbyConnectionBadge" class="lobby-badge">CONNECTING…</span></div>
+        <div id="rankedLobbyNotice" class="ranked-lobby-notice hidden"><strong>RANKED MATCH</strong><span>Verified wins and losses are recorded to the public ROS2 ladder by username and battle format.</span></div>
 
         <div class="lobby-config-block" id="hostConfigBlock">
           <div class="lobby-config-title"><strong>HOST MATCH CONFIG</strong><span id="lobbyConfigLockText">Choose before creating a room.</span></div>
@@ -109,9 +111,10 @@
         <label class="network-label" for="roomId">Room ID</label>
         <input id="roomId" placeholder="room id">
         <div class="network-room-actions"><button id="createRoomBtn">CREATE ROOM</button><button id="joinRoomBtn">JOIN ROOM</button><button id="refreshRoomsBtn">REFRESH</button></div>
+        <button id="viewRankingsBtn" class="view-rankings-button" type="button">VIEW RANKINGS</button>
         <div id="currentRoomCard" class="current-room-card hidden"></div>
 
-        <div class="room-browser-head"><strong>OPEN ROOMS</strong><span id="roomCount">0</span></div>
+        <div class="room-browser-head"><strong id="roomBrowserTitle">OPEN ROOMS</strong><span id="roomCount">0</span></div>
         <div id="roomList" class="room-list"><div class="room-empty">Connecting to multiplayer coordinator…</div></div>
         <div id="lobbyStatus" class="lobby-status">Connecting automatically to the ROS2 multiplayer coordinator…</div>
       </div>
@@ -167,6 +170,29 @@
     <div class="draft-pool-head"><strong id="draftPoolHeading">Available Champions</strong><input id="draftFilter" placeholder="Filter classes…"></div>
     <div id="draftPool" class="draft-pool"></div>
     <div class="draft-footer"><span id="draftOrderText"></span><span>Each class may be drafted once.</span></div>
+  </div>
+</div>
+
+<div id="rankingsModal" class="roster-modal rankings-modal hidden" aria-hidden="true">
+  <div class="roster-modal-card rankings-card">
+    <div class="panel-heading"><h3>ROS2 RANKED LADDER</h3><button id="closeRankingsButton">CLOSE</button></div>
+    <p class="roster-help">Each battle size has its own independent Elo rating and ladder. Champion win rates are tracked separately for every Ranked format.</p>
+    <div class="rankings-controls">
+      <div class="rankings-format-tabs" id="rankingsFormatTabs" aria-label="Ranked battle format">
+        <button type="button" data-ranking-format="1v1">1V1</button><button type="button" data-ranking-format="2v2">2V2</button><button type="button" data-ranking-format="3v3" class="active">3V3</button><button type="button" data-ranking-format="4v4">4V4</button><button type="button" data-ranking-format="5v5">5V5</button>
+      </div>
+      <div class="rankings-view-tabs" aria-label="Rankings view">
+        <button id="rankPlayersButton" type="button" class="active">PLAYER LADDER</button><button id="rankChampionsButton" type="button">CHAMPION WIN RATES</button>
+      </div>
+    </div>
+    <div class="rankings-summary" id="rankingsSummary">Loading rankings…</div>
+    <div class="rankings-table-wrap">
+      <table class="rankings-table">
+        <thead id="rankingsHead"><tr><th>#</th><th>Player</th><th>Rating</th><th>Record</th><th>Games</th><th>Win %</th></tr></thead>
+        <tbody id="rankingsBody"><tr><td colspan="6">Loading…</td></tr></tbody>
+      </table>
+    </div>
+    <div class="rankings-foot" id="rankingsFoot">Format ratings use Elo (1500 initial rating, K=32). Only completed 2P Ranked matches verified by both clients are counted.</div>
   </div>
 </div>
 

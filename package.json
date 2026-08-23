@@ -1,9 +1,9 @@
 {
   "name": "ros2-simulation-core",
-  "version": "0.25.4-stage25d-full-multiplayer-validation",
+  "version": "0.25.17-stage25q-format-ratings-champion-analytics",
   "private": true,
   "type": "module",
-  "description": "Realm of Shinobi 2.0 deterministic combat \u2014 Stage 25D full multiplayer validation",
+  "description": "Realm of Shinobi 2.0 deterministic combat \u2014 Stage 25Q separate format Elo ratings, champion win-rate analytics, and multiplayer validation",
   "scripts": {
     "test": "node --test",
     "demo": "node demo/stage23-demo.js",

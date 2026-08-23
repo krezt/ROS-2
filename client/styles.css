@@ -239,3 +239,38 @@ aside{height:auto;overflow:visible;min-width:0;margin:0;grid-area:auto!important
 .player-name-control input:focus{border-color:#78b9ff;box-shadow:0 0 0 2px #407dbb33}
 @media (max-width:1180px){.topbar{grid-template-columns:minmax(220px,1fr) auto minmax(135px,165px) auto}.player-name-control input{width:100px}.player-name-control label{display:none}}
 @media (max-width:900px){.topbar{grid-template-columns:1fr auto}.player-name-control{grid-column:1/-1;grid-row:2;justify-content:flex-start}.round-strip{grid-column:1/-1;grid-row:3}#modeButtons{grid-column:2;grid-row:1}.player-name-control label{display:block}.player-name-control input{width:160px}}
+
+/* Stage 25P — 2P Ranked ladder */
+#modeButtons .ranked-mode-button{border-color:#8a7834;color:#ffe9a6;background:#211d11}
+#modeButtons .ranked-mode-button:hover,#modeButtons .ranked-mode-button.active{background:#51451d;border-color:#d8b94d;color:#fff4bd;box-shadow:0 0 10px #d8b94d33}
+.ranked-lobby-notice{display:flex;align-items:flex-start;gap:8px;margin:0 0 8px;padding:8px;border:1px solid #8d7732;border-radius:6px;background:linear-gradient(90deg,#29220d,#121821);font-size:9px;line-height:1.35;color:#c8b878}
+.ranked-lobby-notice strong{flex:0 0 auto;color:#ffe99b;letter-spacing:.6px}.ranked-lobby-notice span{color:#b9c5d8}
+.view-rankings-button{width:100%;margin-top:6px;background:#352d14;border-color:#a78d3c;color:#ffe9a5;font-size:10px;font-weight:900;letter-spacing:.5px}
+.view-rankings-button:hover:not(:disabled){background:#554719;border-color:#d5b653}
+.room-entry.ranked-room{border-color:#77672b;background:linear-gradient(90deg,#211c0e,#0b121b 62%)}
+.room-entry.ranked-room.open-room{border-color:#9b8131;background:linear-gradient(90deg,#2d260e,#102319 45%,#0b121b)}
+.current-room-card.ranked-room-card{border-color:#8d7732;box-shadow:0 0 12px #b6983230 inset}
+.current-room-card .ranked-tag{display:inline-block;margin-right:5px;padding:1px 5px;border:1px solid #9b8333;border-radius:999px;color:#ffe99b;background:#2a240f;font-size:8px;font-weight:900;letter-spacing:.5px}
+.player-name-control input:disabled{opacity:.72;border-color:#8d7732;color:#ffe9a6;background:#16130a}
+.rankings-modal{z-index:1650}.rankings-card{width:min(1040px,96vw)}
+.rankings-summary{margin:5px 0 9px;padding:8px;border:1px solid #344b68;border-radius:6px;background:#0b131e;color:#9fb3ce;font-size:10px}
+.rankings-table-wrap{overflow:auto;border:1px solid #344a64;border-radius:7px;max-height:62vh}
+.rankings-table{width:100%;border-collapse:collapse;min-width:800px;font-size:10px}
+.rankings-table th,.rankings-table td{padding:8px 9px;border-bottom:1px solid #25364c;text-align:center;white-space:nowrap}
+.rankings-table th{position:sticky;top:0;z-index:1;background:#111d2b;color:#9fb6d5;text-transform:uppercase;font-size:9px;letter-spacing:.5px}
+.rankings-table th:nth-child(2),.rankings-table td:nth-child(2){text-align:left}
+.rankings-table tbody tr:nth-child(1){background:#2b260f}.rankings-table tbody tr:nth-child(2){background:#222631}.rankings-table tbody tr:nth-child(3){background:#241a12}
+.rankings-table tbody tr.current-player{outline:1px solid #5eaa76;outline-offset:-1px;background:#10251a}
+.rankings-rank{font-weight:900;color:#ffe58d}.rankings-name{font-weight:900;color:#eef5ff}.rankings-record{color:#cbd7e8}.rankings-winpct{color:#9cebb0;font-weight:900}
+.rankings-empty{text-align:center!important;color:#7388a5!important;padding:22px!important}
+.rankings-foot{margin-top:8px;color:#7d90aa;font-size:9px;line-height:1.4}
+
+/* Stage 25Q — separate format ladders + champion balance analytics */
+.rankings-controls{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:7px 0 8px}
+.rankings-format-tabs,.rankings-view-tabs{display:flex;gap:5px;flex-wrap:wrap}
+.rankings-format-tabs button,.rankings-view-tabs button{padding:6px 10px;border:1px solid #3d5470;background:#101b29;color:#93a9c7;font-size:9px;font-weight:900;letter-spacing:.45px;border-radius:5px}
+.rankings-format-tabs button:hover,.rankings-view-tabs button:hover{border-color:#738cab;color:#e8f1ff}
+.rankings-format-tabs button.active{background:#3b3215;border-color:#d0ae45;color:#fff0ad;box-shadow:0 0 8px #d0ae4530}
+.rankings-view-tabs button.active{background:#173321;border-color:#59a979;color:#bdf4ce;box-shadow:0 0 8px #59a9792d}
+.rankings-rating{font-weight:900;color:#f3d77f}.rankings-games{color:#91a6c2}.rankings-champion{font-weight:900;color:#c6f3d3}
+.rankings-card{width:min(900px,96vw)}

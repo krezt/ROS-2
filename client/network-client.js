@@ -35,12 +35,13 @@ export class CoordinatorSocket {
     this.ws.send(JSON.stringify({kind,...payload}));
   }
   setPlayerName(name){this.playerName=String(name??'Player').trim().slice(0,20)||'Player';if(this.ws?.readyState===WebSocket.OPEN)this.send('set_player_name',{playerName:this.playerName});}
-  createRoom({id,teamSize=3,draftBansPerPlayer=0,replaySpeed=null}={}){
-    this.send('create_room',{...(id?{id}:{}),teamSize,draftBansPerPlayer,playerName:this.playerName,...(Number.isFinite(replaySpeed)?{replaySpeed}:{})});
+  createRoom({id,teamSize=3,draftBansPerPlayer=0,replaySpeed=null,ranked=false}={}){
+    this.send('create_room',{...(id?{id}:{}),teamSize,draftBansPerPlayer,...(ranked===true?{ranked:true}:{}),playerName:this.playerName,...(Number.isFinite(replaySpeed)?{replaySpeed}:{})});
   }
   joinRoom(id){this.send('join_room',{id,playerName:this.playerName});}
   updateRoomConfig({teamSize,draftBansPerPlayer,replaySpeed=null}){this.send('update_room_config',{teamSize,draftBansPerPlayer,...(Number.isFinite(replaySpeed)?{replaySpeed}:{})});}
   listRooms(){this.send('list_rooms');}
+  requestRankings(){this.send('get_rankings');}
   submitDraftBan(archetype){this.send('draft_ban',{archetype});}
   submitDraftPick(archetype){this.send('draft_pick',{archetype});}
   lockDeclarations(declarations,deadlineMetadata){this.send('round_declarations',{declarations,deadlineMetadata});}
