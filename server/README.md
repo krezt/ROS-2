@@ -1,49 +1,27 @@
-# ROS2 Stage 25S coordinator
+# ROS2 Stage 25U coordinator — verified Ranked persistence
 
-Run from the project root with:
+Stage 25U hardens the Supabase-backed Ranked ladder after testing exposed a dangerous failure mode: a Ranked result could appear in the live coordinator memory even if the durable Supabase write failed, then disappear after a Render Free spin-down.
 
-```bash
-node server/relay-server.cjs
-```
+## Required hosted configuration
 
-The coordinator serves:
+Render Free web services use an **ephemeral filesystem**. On Render Free, Ranked is now **fail-closed**. A Ranked room cannot be created or joined unless durable storage has been loaded and verified. Render local files are ephemeral and are not accepted as durable Ranked storage.
 
-- `/health` — coordinator health/status, including Ranked persistence status
-- `/rankings` — public Ranked ladder + champion analytics JSON
-- `/ws` — multiplayer WebSocket endpoint
-
-Stage 25S fixes Ranked standings disappearing after a hosted coordinator restart/spin-down. The local JSON ladder is still kept as a development/backup file, but hosted Free Render deployments should use the durable Supabase snapshot backend described below.
-
-## Why the old ladder disappeared on Render Free
-
-Render Free web services use an **ephemeral filesystem**. When the coordinator spins down, restarts, or redeploys, runtime changes to `server/data/ranked-ladder.json` are lost. A Free service can spin down after roughly 15 minutes without inbound HTTP/WebSocket traffic, so a ladder can appear to work and then be empty the next time the service wakes.
-
-A paid Render service can instead use a persistent disk. For a Free coordinator, Stage 25S supports Supabase over its HTTPS REST API using Node's built-in `fetch`, so no extra npm dependency is required.
-
-## Recommended Free Render setup — Supabase
-
-1. Create a Supabase project.
-2. Open **SQL Editor** and run `server/supabase-ranked-ladder.sql`.
-3. In Supabase, copy the Project URL and the **service_role** key.
-4. In the Render `ros2-coordinator` service, add these environment variables:
+Run `server/supabase-ranked-ladder.sql` once in the Supabase SQL Editor, then configure the `ros2-coordinator` Render service with:
 
 ```text
 SUPABASE_URL=https://YOUR_PROJECT.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=YOUR_SERVICE_ROLE_KEY
+SUPABASE_SECRET_KEY=sb_secret_...
 ```
 
-Optional overrides:
+`SUPABASE_SERVICE_ROLE_KEY` is still accepted for backward compatibility and may contain either a legacy service_role JWT or a current `sb_secret_...` key. `SUPABASE_SECRET_KEY` is the preferred current name. Never expose the service-role key or current secret key in the static client or GitHub.
 
-```text
-ROS2_LADDER_SUPABASE_TABLE=ros2_ranked_ladder
-ROS2_LADDER_SUPABASE_ROW=main
-```
+New `sb_secret_...` keys are sent to Supabase using the `apikey` header. Legacy JWT service-role keys continue to use `apikey` plus `Authorization: Bearer ...`.
 
-**Never expose the service-role key in the static client or GitHub.** It belongs only in the Render coordinator environment.
+## Verification
 
-On startup the coordinator loads the ladder from Supabase before accepting Ranked results. Every verified Ranked result is then written to the normal local JSON file and synchronously mirrored to Supabase before the server broadcasts `ranked_match_recorded`.
+Every Ranked result now uses a **write + read-back verification** before the coordinator tells clients that the durable ladder update succeeded. The snapshot carries a monotonically increasing `persistenceRevision`. If the remote copy does not match the local revision/record counts, storage is marked unhealthy and further Ranked entry is blocked until the coordinator restarts with working storage.
 
-If Supabase is configured but cannot be loaded safely on startup, creation of new Ranked rooms is blocked with `RANKED_STORAGE_UNAVAILABLE` instead of risking overwriting or silently losing standings.
+The coordinator retries a failed durable write three times before reporting a storage failure. Casual multiplayer remains available.
 
 Check:
 
@@ -51,28 +29,35 @@ Check:
 https://ros2-coordinator.onrender.com/health
 ```
 
-A correctly configured Free deployment should report a Ranked persistence object with:
+A healthy hosted setup should include values equivalent to:
 
 ```json
-{"mode":"supabase","durable":true,"remoteHealthy":true}
+{
+  "rankedPersistence": {
+    "mode": "supabase",
+    "required": true,
+    "durable": true,
+    "remoteHealthy": true,
+    "verified": true,
+    "error": null
+  }
+}
 ```
 
-## Paid Render persistent-disk option
+`/rankings` now also includes a `persistence` object. The in-game **VIEW RANKINGS** modal displays the same storage state so a local-only ladder can no longer look healthy.
 
-You can still use a paid Render persistent disk instead of Supabase:
+## Endpoints
+
+- `/health` — coordinator + Ranked persistence diagnostics
+- `/rankings` — public Ranked ladder, champion analytics, and persistence state
+- `/ws` — multiplayer WebSocket endpoint
+
+## Local development
+
+Local development does not require Supabase by default. To exercise fail-closed behavior locally, set:
 
 ```text
-Persistent Disk mount: /var/data
-ROS2_LADDER_FILE=/var/data/ros2-ranked-ladder.json
-ROS2_LADDER_DURABLE_FILE=true
+ROS2_REQUIRE_DURABLE_RANKED=true
 ```
 
-Only set `ROS2_LADDER_DURABLE_FILE=true` when that path really is backed by a persistent disk.
-
-## Rating model
-
-- Initial rating: `1500`
-- Elo K-factor: `32`
-- Each team size has an independent rating.
-- Ranked records use W-D-L; draws score `0.5` in Elo.
-- Champion W-D-L analytics are tracked independently by team size.
+A paid Render persistent disk remains supported with `ROS2_LADDER_DURABLE_FILE=true` only when the configured ladder path actually resides on that persistent disk.

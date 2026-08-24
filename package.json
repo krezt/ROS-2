@@ -1,9 +1,9 @@
 {
   "name": "ros2-simulation-core",
-  "version": "0.25.19-stage25s-durable-ranked-storage",
+  "version": "0.25.21-stage25u-ranked-persistence-hardening",
   "private": true,
   "type": "module",
-  "description": "Realm of Shinobi 2.0 deterministic combat \u2014 Stage 25S durable Ranked ladder persistence for Render free-tier spin-downs",
+  "description": "Realm of Shinobi 2.0 deterministic combat \u2014 Stage 25U Ranked persistence hardening and diagnostics",
   "scripts": {
     "test": "node --test",
     "demo": "node demo/stage23-demo.js",

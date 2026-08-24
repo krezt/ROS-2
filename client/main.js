@@ -89,6 +89,7 @@ let networkRankedMode=false;
 let currentRoom=null;
 let advertisedRooms=[];
 let latestRankings={version:3,updatedAt:null,formats:['1v1','2v2','3v3','4v4','5v5'],ratingSystem:{name:'Elo',initial:1500,kFactor:32},players:[],champions:[]};
+let latestRankedPersistence=null;
 let rankingFormat='3v3',rankingView='players';
 let networkMatchCompleteConfirmed=false;
 
@@ -237,8 +238,7 @@ function renderNetworkDraft(){
   const filter=q('draftFilter').value.trim().toLowerCase();const pool=q('draftPool');pool.innerHTML='';
   for(const id of state.available??[]){
     if(filter&&!id.toLowerCase().includes(filter))continue;
-    const archetype=getArchetype(id),b=document.createElement('button');b.className=`draft-option${banPhase?' ban-mode':''}`;b.disabled=!mine||complete;
-    const name=document.createElement('strong');name.textContent=id;const desc=document.createElement('small');desc.textContent=archetype.identity??'ROS2 champion';b.append(name,desc);
+    const archetype=getArchetype(id),b=createDraftOption(id,archetype,{banMode:banPhase,disabled:!mine||complete});
     b.onclick=()=>{if(!networkDraftState||networkDraftState.turnSide!==socket?.side)return;banPhase?socket?.submitDraftBan(id):socket?.submitDraftPick(id);};pool.appendChild(b);
   }
   const order=banPhase?state.banOrder:state.draftOrder;
@@ -283,8 +283,23 @@ function renderRankingControls(){
   for(const b of document.querySelectorAll('[data-ranking-format]'))b.classList.toggle('active',b.dataset.rankingFormat===rankingFormat);
   q('rankPlayersButton').classList.toggle('active',rankingView==='players');q('rankChampionsButton').classList.toggle('active',rankingView==='champions');
 }
+function renderRankedPersistence(persistence=latestRankedPersistence){
+  if(persistence)latestRankedPersistence=persistence;
+  const el=q('rankedPersistenceStatus');if(!el)return;
+  const p=latestRankedPersistence;
+  el.className='ranked-persistence-status';
+  if(!p){el.textContent='RANKED STORAGE: CHECKING…';el.classList.add('checking');return;}
+  if(p.durable&&p.remoteHealthy){
+    const stamp=p.lastVerifiedAt?new Date(p.lastVerifiedAt).toLocaleTimeString():null;
+    el.textContent=`RANKED STORAGE: SUPABASE VERIFIED${Number.isFinite(Number(p.revision))?` • REV ${p.revision}`:''}${stamp?` • ${stamp}`:''}`;
+    el.classList.add('healthy');return;
+  }
+  if(p.durable){el.textContent=`RANKED STORAGE: DURABLE ${String(p.mode??'STORAGE').toUpperCase()}`;el.classList.add('healthy');return;}
+  el.textContent=`RANKED STORAGE: NOT DURABLE${p.error?` • ${String(p.error).slice(0,90)}`:''}`;
+  el.classList.add('error');
+}
 function renderRankings(standings=latestRankings){
-  latestRankings=standings??latestRankings;renderRankingControls();
+  latestRankings=standings??latestRankings;renderRankingControls();renderRankedPersistence();
   const body=q('rankingsBody'),head=q('rankingsHead');body.innerHTML='';
   const stamp=latestRankings?.updatedAt?new Date(latestRankings.updatedAt).toLocaleString():'No completed ranked matches yet';
   if(rankingView==='champions'){
@@ -315,13 +330,14 @@ function renderRankings(standings=latestRankings){
 }
 function openRankings(){
   rankingFormat=`${Number(currentRoom?.config?.teamSize??networkTeamSize)||3}v${Number(currentRoom?.config?.teamSize??networkTeamSize)||3}`;
-  q('rankingsModal').classList.remove('hidden');q('rankingsModal').setAttribute('aria-hidden','false');renderRankings();if(socket?.ws?.readyState===WebSocket.OPEN)socket.requestRankings();else q('rankingsSummary').textContent='Coordinator offline — rankings cannot be refreshed right now.';
+  q('rankingsModal').classList.remove('hidden');q('rankingsModal').setAttribute('aria-hidden','false');renderRankedPersistence();renderRankings();if(socket?.ws?.readyState===WebSocket.OPEN)socket.requestRankings();else q('rankingsSummary').textContent='Coordinator offline — rankings cannot be refreshed right now.';
 }
-function closeRankings(){q('rankingsModal').classList.add('hidden');q('rankingsModal').setAttribute('aria-hidden','true');}
+function closeRankings(){const modal=q('rankingsModal');if(modal.contains(document.activeElement))q('viewRankingsBtn')?.focus();modal.classList.add('hidden');modal.setAttribute('aria-hidden','true');}
 function humanServerError(code){
   if(code==='RANKED_NAME_REQUIRED')return 'Choose a player name before entering Ranked.';
   if(code==='RANKED_NAME_IN_USE')return 'That username is already being used by the other player in this ranked room.';
   if(code==='RANKED_NAME_LOCKED')return 'Player names are locked once a ranked room starts.';
+  if(code==='RANKED_STORAGE_UNAVAILABLE')return 'Ranked is temporarily unavailable because durable ladder storage is not verified. Check the Rankings storage indicator or coordinator /health status.';
   if(code==='DRAW_PROPOSAL_ONLY_DURING_PLANNING')return 'Draws may be proposed during the action-planning phase between replays.';
   if(code==='DRAW_PROPOSAL_PENDING')return 'A draw proposal is already pending.';
   if(code==='DRAW_PROPOSAL_ONLY_BEFORE_LOCK')return 'Propose a draw before either player locks their actions for the round.';
@@ -331,9 +347,10 @@ function humanServerError(code){
 q('viewRankingsBtn').onclick=openRankings;q('closeRankingsButton').onclick=closeRankings;q('rankPlayersButton').onclick=()=>setRankingView('players');q('rankChampionsButton').onclick=()=>setRankingView('champions');for(const b of document.querySelectorAll('[data-ranking-format]'))b.onclick=()=>setRankingFormat(b.dataset.rankingFormat);q('rankingsModal').addEventListener('pointerdown',e=>{if(e.target===q('rankingsModal'))closeRankings();});
 
 async function handleNetworkMessage(msg){
-  if(msg.kind==='rankings'||msg.kind==='rankings_updated'){renderRankings(msg.standings);return;}
+  if(msg.kind==='rankings'||msg.kind==='rankings_updated'){renderRankedPersistence(msg.persistence);renderRankings(msg.standings);return;}
+  if(msg.kind==='ranked_storage_error'){renderRankedPersistence(msg.persistence);const text='Ranked result completed, but durable ladder storage could not be verified. New Ranked rooms are blocked until storage recovers.';appendChatSystem(text);scene.setStatus(text);setLobbyStatus(text);return;}
   if(msg.kind==='ranked_match_recorded'){
-    renderRankings(msg.standings);const mine=(msg.standings?.players??[]).find(p=>normalizePlayerName(p.name).toLowerCase()===currentPlayerName().toLowerCase()),formatRecord=mine?.formats?.[msg.format];
+    renderRankedPersistence(msg.persistence);renderRankings(msg.standings);const mine=(msg.standings?.players??[]).find(p=>normalizePlayerName(p.name).toLowerCase()===currentPlayerName().toLowerCase()),formatRecord=mine?.formats?.[msg.format];
     const note=mine&&formatRecord?`${mine.name} is #${formatRecord.rank} in ${msg.format} at ${formatRecord.rating} (${formatRecord.wins}-${formatRecord.draws??0}-${formatRecord.losses}).`:'Ranked ladder updated.';appendChatSystem(`${msg.draw?'Ranked draw':'Ranked result'} recorded (${msg.format}) — ${note}`);scene.setStatus(`${msg.draw?'Ranked draw':'Ranked result'} recorded — ${note}`);return;
   }
   if(msg.kind==='chat_message'){appendChatMessage(msg);return;}
@@ -343,7 +360,7 @@ async function handleNetworkMessage(msg){
   if(msg.kind==='hello_ack'){
     q('lobbyConnectionBadge').textContent='ONLINE';q('lobbyConnectionBadge').className='lobby-badge online';
     setLobbyStatus(`Connected automatically to ${COORDINATOR_URL}. Create a configured room or join an advertised room.`);
-    socket?.listRooms();return;
+    socket?.listRooms();socket?.requestRankings();return;
   }
   if(msg.kind==='rooms'){renderRooms(msg.rooms);return;}
   if(msg.kind==='room_joined'){
@@ -547,7 +564,24 @@ function continueAiDraftIfNeeded(){
 function finishLocalDraft(){
   if(!draftState)return;const {teamSize,picksA,picksB}=draftState;if(picksA.length!==teamSize||picksB.length!==teamSize)return;closeDraft();scene.configureSinglePlayerTeams({teamA:picksA,teamB:picksB},{source:'vs AI draft'});activateTopButton(q('onePlayerDraftButton'));showNetworkPanel(false);
 }
-function pickChip(archetype){const chip=document.createElement('span');chip.className='draft-pick-chip';chip.textContent=archetype;return chip;}
+function draftPortraitPath(archetype){return `assets/draft_portraits/${encodeURIComponent(archetype)}.png`;}
+function draftPortrait(archetype,className='draft-portrait'){
+  const img=document.createElement('img');img.className=className;img.src=draftPortraitPath(archetype);img.alt='';img.loading='lazy';img.decoding='async';img.draggable=false;
+  img.onerror=()=>img.classList.add('portrait-missing');return img;
+}
+function createDraftOption(id,archetype,{banMode=false,disabled=false}={}){
+  const b=document.createElement('button');b.className=`draft-option${banMode?' ban-mode':''}`;b.disabled=disabled;
+  const portrait=draftPortrait(id,'draft-option-portrait');
+  const copy=document.createElement('span');copy.className='draft-option-copy';
+  const name=document.createElement('strong');name.textContent=id;
+  const desc=document.createElement('small');desc.textContent=archetype?.identity??'ROS2 champion';
+  copy.append(name,desc);b.append(portrait,copy);return b;
+}
+function pickChip(archetype){
+  const chip=document.createElement('span');chip.className='draft-pick-chip';
+  if(ROSTER_IDS.includes(archetype))chip.appendChild(draftPortrait(archetype,'draft-chip-portrait'));
+  const label=document.createElement('span');label.textContent=archetype;chip.appendChild(label);return chip;
+}
 function renderDraft(){
   if(!draftState)return;const size=draftState.teamSize,turn=draftTurnSide(),mine=turn===SIDE.A;
   q('draftMyTitle').textContent='YOUR PICKS';q('draftOpponentTitle').textContent='CPU PICKS';q('draftBanSummary').classList.add('hidden');q('draftPoolHeading').textContent='Available Champions';
@@ -555,7 +589,7 @@ function renderDraft(){
   const my=q('draftMyPicks'),cpu=q('draftCpuPicks');my.innerHTML='';cpu.innerHTML='';draftState.picksA.forEach(x=>my.appendChild(pickChip(x)));draftState.picksB.forEach(x=>cpu.appendChild(pickChip(x)));
   for(let i=draftState.picksA.length;i<size;i++){const s=document.createElement('span');s.className='draft-pick-chip empty';s.textContent=`Slot ${i+1}`;my.appendChild(s);}for(let i=draftState.picksB.length;i<size;i++){const s=document.createElement('span');s.className='draft-pick-chip empty';s.textContent=`Slot ${i+1}`;cpu.appendChild(s);}
   const filter=q('draftFilter').value.trim().toLowerCase();const pool=q('draftPool');pool.innerHTML='';
-  for(const id of draftState.pool){if(filter&&!id.toLowerCase().includes(filter))continue;const archetype=getArchetype(id);const b=document.createElement('button');b.className='draft-option';b.disabled=!mine||draftComplete();const name=document.createElement('strong');name.textContent=id;const desc=document.createElement('small');desc.textContent=archetype.identity??'ROS2 champion';b.append(name,desc);b.onclick=()=>commitDraftPick(SIDE.A,id);pool.appendChild(b);}
+  for(const id of draftState.pool){if(filter&&!id.toLowerCase().includes(filter))continue;const archetype=getArchetype(id);const b=createDraftOption(id,archetype,{disabled:!mine||draftComplete()});b.onclick=()=>commitDraftPick(SIDE.A,id);pool.appendChild(b);}
   q('draftOrderText').textContent=`Order: ${draftState.order.map(side=>side===SIDE.A?'P1':'CPU').join(' → ')}`;
 }
 

@@ -191,16 +191,21 @@ aside{height:auto;overflow:visible;min-width:0;margin:0;grid-area:auto!important
 .draft-picks-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;padding:12px 16px;border-bottom:1px solid #30415c}
 .draft-picks-grid h4{margin:0 0 7px;color:#a9bdd8}
 .draft-picks{display:flex;gap:6px;flex-wrap:wrap;min-height:30px}
-.draft-pick-chip{padding:5px 8px;border:1px solid #506888;border-radius:4px;background:#1c293b;color:#eaf1ff;font-size:12px}
+.draft-pick-chip{display:inline-flex;align-items:center;gap:5px;min-height:26px;padding:2px 6px 2px 3px;border:1px solid #506888;border-radius:4px;background:#1c293b;color:#eaf1ff;font-size:11px;font-weight:700;white-space:nowrap}
 .draft-pick-chip.empty{opacity:.4;border-style:dashed}
 .draft-pool-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 16px}
 .draft-pool-head input{min-width:220px;background:#080c12;color:#fff;border:1px solid #40536f;padding:7px 9px;border-radius:4px}
 .draft-pool{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding:0 16px 14px;overflow:auto;min-height:0;flex:1}
-.draft-option{display:flex;flex-direction:column;align-items:flex-start;text-align:left;min-height:72px;padding:10px;border-left:4px solid #7454bf}
-.draft-option strong{font-size:15px;color:#f0eaff}
+.draft-option{display:grid;grid-template-columns:64px minmax(0,1fr);align-items:center;gap:10px;text-align:left;min-height:86px;padding:8px 10px;border-left:4px solid #7454bf;overflow:hidden}
+.draft-option-portrait{width:64px;height:64px;display:block;object-fit:contain;object-position:center;border:1px solid #40536f;border-radius:5px;background:radial-gradient(circle at 50% 42%,#1b2636 0,#0a1018 74%);box-shadow:inset 0 0 0 1px rgba(255,255,255,.025);pointer-events:none}
+.draft-option-copy{display:flex;flex-direction:column;align-items:flex-start;min-width:0;pointer-events:none}
+.draft-option strong{font-size:15px;color:#f0eaff;line-height:1.1}
 .draft-option small{margin-top:5px;color:#aebed5;line-height:1.25}
+.draft-chip-portrait{width:18px;height:18px;display:block;flex:0 0 18px;object-fit:contain;object-position:center;border-radius:3px;background:#0a111a;border:1px solid #3f5572;pointer-events:none}
+.portrait-missing{display:none!important}
 .draft-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 16px;border-top:1px solid #30415c;color:#8195b3;font-size:11px;background:#0d141f}
 @media(max-width:1250px){.draft-pool{grid-template-columns:repeat(2,minmax(0,1fr))}.team-size-grid{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:720px){.draft-option{grid-template-columns:52px minmax(0,1fr);min-height:74px;gap:8px}.draft-option-portrait{width:52px;height:52px}.draft-option small{font-size:10px}.draft-chip-portrait{width:17px;height:17px;flex-basis:17px}}
 .roster-size-row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:8px 0 14px;font-weight:700}.roster-team-size-grid{flex:1;max-width:520px}.roster-select-stack{display:grid;gap:8px}.roster-select-stack select.is-unused{display:none}
 
 /* Stage 25B — multiplayer lobby */
@@ -275,3 +280,8 @@ aside{height:auto;overflow:visible;min-width:0;margin:0;grid-area:auto!important
 .rankings-view-tabs button.active{background:#173321;border-color:#59a979;color:#bdf4ce;box-shadow:0 0 8px #59a9792d}
 .rankings-rating{font-weight:900;color:#f3d77f}.rankings-games{color:#91a6c2}.rankings-champion{font-weight:900;color:#c6f3d3}
 .rankings-card{width:min(900px,96vw)}
+
+.ranked-persistence-status{margin:5px 0 8px;padding:6px 8px;border:1px solid #445064;border-radius:5px;background:#0d141f;color:#aab8ca;font-size:9px;font-weight:900;letter-spacing:.45px;line-height:1.25}
+.ranked-persistence-status.checking{border-color:#5f5c3b;color:#e4d48c;background:#19170d}
+.ranked-persistence-status.healthy{border-color:#3d7952;color:#b9f2ca;background:#0d1e14;box-shadow:inset 0 0 0 1px #2a523733}
+.ranked-persistence-status.error{border-color:#8a4242;color:#ffb1b1;background:#251010}

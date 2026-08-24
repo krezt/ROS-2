@@ -1,5 +1,6 @@
 {
-  "version": 3,
+  "version": 4,
+  "persistenceRevision": 0,
   "updatedAt": null,
   "players": {},
   "champions": {},

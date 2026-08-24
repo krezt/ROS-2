@@ -1,4 +1,6 @@
-# Realm of Shinobi 2.0 — Stage 25Q Format Ratings + Champion Analytics
+# Realm of Shinobi 2.0 — Stage 25U Ranked Persistence Hardening
+
+Stage 25U preserves all Stage 25T gameplay/visual content and fixes the hosted Ranked persistence path: modern Supabase secret-key authentication, verified read-after-write persistence, fail-closed Ranked on hosted ephemeral storage, and an in-game Ranked storage health indicator. See `server/README.md` for deployment details.
 
 This build extends the Stage 25P 2P Ranked ladder with **independent ratings and ranks for every team size** plus persistent **champion win-rate analytics by format**. Ranked rooms continue to use the same synchronized draft, deterministic round confirmation, replay synchronization, chat, disconnect handling, and verified match-result agreement.
 

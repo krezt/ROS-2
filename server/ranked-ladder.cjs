@@ -44,7 +44,7 @@ function normalizeTeam(team,expectedSize){
 class RankedLadder {
   constructor({filePath}={}){
     this.filePath=filePath||path.join(__dirname,'data','ranked-ladder.json');
-    this.data={version:3,updatedAt:null,players:{},champions:{},recordedMatches:{},championTrackingSince:null};
+    this.data={version:3,persistenceRevision:0,updatedAt:null,players:{},champions:{},recordedMatches:{},championTrackingSince:null};
     this.load();
   }
   applyData(parsed,{saveMigration=true}={}){
@@ -52,6 +52,7 @@ class RankedLadder {
     const oldVersion=Number(parsed.version)||1;
     this.data={
       version:3,
+      persistenceRevision:Math.max(0,Number(parsed.persistenceRevision)||0),
       updatedAt:parsed.updatedAt??null,
       players:parsed.players&&typeof parsed.players==='object'?parsed.players:{},
       champions:parsed.champions&&typeof parsed.champions==='object'?parsed.champions:{},
@@ -77,16 +78,18 @@ class RankedLadder {
       const oldVersion=Number(remote.version)||1;
       this.applyData(remote,{saveMigration:false});
       this.save();
-      if(oldVersion<3)await store.save(this.data);
+      if(oldVersion<3){
+        if(typeof store.saveAndVerify==='function')await store.saveAndVerify(this.data);else await store.save(this.data);
+      }
       return {configured:true,loaded:true,migrated:oldVersion<3};
     }
-    await store.save(this.data);
+    if(typeof store.saveAndVerify==='function')await store.saveAndVerify(this.data);else await store.save(this.data);
     return {configured:true,loaded:false,seeded:true};
   }
   async persistRemote(store){
     if(!store)return {configured:false,persisted:false};
-    await store.save(this.data);
-    return {configured:true,persisted:true};
+    if(typeof store.saveAndVerify==='function')await store.saveAndVerify(this.data);else await store.save(this.data);
+    return {configured:true,persisted:true,verified:true,revision:this.data.persistenceRevision};
   }
   save(){
     try{
@@ -147,6 +150,7 @@ class RankedLadder {
     for(const champion of aTeam)updateChampion(champion,'A');for(const champion of bTeam)updateChampion(champion,'B');
     if(!this.data.championTrackingSince)this.data.championTrackingSince=now;
     this.data.updatedAt=now;
+    this.data.persistenceRevision=Math.max(0,Number(this.data.persistenceRevision)||0)+1;
     this.data.recordedMatches[id]={format,winnerSide,draw:winnerSide==='DRAW',playerA:a.name,playerB:b.name,teamA:[...aTeam],teamB:[...bTeam],ratingBefore:before,ratingAfter:after,recordedAt:now};
     this.save();return {recorded:true,standings:this.snapshot()};
   }
@@ -171,7 +175,7 @@ class RankedLadder {
       const ranked=champions.filter(c=>c.formats[f].games>0).sort((a,b)=>b.formats[f].winPct-a.formats[f].winPct||b.formats[f].games-a.formats[f].games||b.formats[f].wins-a.formats[f].wins||a.name.localeCompare(b.name));
       ranked.forEach((c,i)=>c.formats[f].rank=i+1);
     }
-    return {version:3,updatedAt:this.data.updatedAt,formats:[...FORMATS],ratingSystem:{name:'Elo',initial:INITIAL_RATING,kFactor:ELO_K,drawScore:0.5},players,champions,championTrackingSince:this.data.championTrackingSince};
+    return {version:3,persistenceRevision:this.data.persistenceRevision,updatedAt:this.data.updatedAt,formats:[...FORMATS],ratingSystem:{name:'Elo',initial:INITIAL_RATING,kFactor:ELO_K,drawScore:0.5},players,champions,championTrackingSince:this.data.championTrackingSince};
   }
 }
 
