@@ -11,7 +11,7 @@ new Phaser.Game({type:Phaser.AUTO,parent:'game',backgroundColor:'#080b10',scene:
 const q=id=>document.getElementById(id);
 const COORDINATOR_URL='wss://ros2-coordinator.onrender.com/ws';
 let socket=null,reconnectTimer=null;
-let activeLogTab='combat',chatUnread=0;
+let activeLogTab='combat',chatUnread=0,chatCollapsed=false;
 const PLAYER_NAME_STORAGE_KEY='ros2-player-name';
 function normalizePlayerName(value){return String(value??'').replace(/[<>&\u0000-\u001f\u007f]/g,'').replace(/\s+/g,' ').trim().slice(0,20)||'Player';}
 function currentPlayerName(){return normalizePlayerName(q('playerNameInput')?.value);}
@@ -37,6 +37,7 @@ q('cancelTargetButton').onclick=()=>scene.cancelTargeting();
 q('timeControlButton').onclick=()=>scene.handleTimeControl();
 q('replaySpeedButton').onclick=()=>handleReplaySpeedButton();
 q('clearLogButton').onclick=()=>{q('combatLog').innerHTML='';};
+q('chatCollapseButton').onclick=()=>setChatCollapsed(!chatCollapsed);
 q('combatLogTabButton').onclick=()=>setLogChatTab('combat');
 q('chatTabButton').onclick=()=>setLogChatTab('chat');
 q('chatForm').addEventListener('submit',event=>{
@@ -50,13 +51,22 @@ function setLogChatTab(tab){
   const wantsChat=tab==='chat'&&!q('chatTabButton').disabled;
   activeLogTab=wantsChat?'chat':'combat';
   q('combatLog').classList.toggle('hidden',activeLogTab!=='combat');
-  q('multiplayerChat').classList.toggle('hidden',activeLogTab!=='chat');
+  q('multiplayerChat').classList.toggle('hidden',activeLogTab!=='chat'||chatCollapsed);
   q('combatLogTabButton').classList.toggle('active',activeLogTab==='combat');
   q('chatTabButton').classList.toggle('active',activeLogTab==='chat');
   q('combatLogTabButton').setAttribute('aria-selected',String(activeLogTab==='combat'));
   q('chatTabButton').setAttribute('aria-selected',String(activeLogTab==='chat'));
   q('clearLogButton').classList.toggle('hidden',activeLogTab==='chat');
-  if(activeLogTab==='chat'){chatUnread=0;updateChatUnread();q('chatMessages').scrollTop=q('chatMessages').scrollHeight;q('chatInput')?.focus();}
+  q('chatCollapseButton').classList.toggle('hidden',activeLogTab!=='chat');
+  if(activeLogTab==='chat'&&!chatCollapsed){chatUnread=0;updateChatUnread();q('chatMessages').scrollTop=q('chatMessages').scrollHeight;q('chatInput')?.focus();}
+}
+function setChatCollapsed(collapsed){
+  chatCollapsed=Boolean(collapsed);
+  const button=q('chatCollapseButton');
+  button.textContent=chatCollapsed?'EXPAND':'COLLAPSE';button.setAttribute('aria-expanded',String(!chatCollapsed));
+  q('logPanel')?.classList.toggle('chat-collapsed',chatCollapsed);
+  q('multiplayerChat').classList.toggle('hidden',activeLogTab!=='chat'||chatCollapsed);
+  if(!chatCollapsed&&activeLogTab==='chat'){chatUnread=0;updateChatUnread();q('chatMessages').scrollTop=q('chatMessages').scrollHeight;q('chatInput')?.focus();}
 }
 function updateChatUnread(){
   const badge=q('chatUnreadBadge'),tab=q('chatTabButton');
@@ -66,7 +76,7 @@ function setChatAvailable(available){
   q('chatTabButton').disabled=!available;q('chatInput').disabled=!available;q('chatSendButton').disabled=!available;
   if(!available&&activeLogTab==='chat')setLogChatTab('combat');
 }
-function clearChat(){q('chatMessages').innerHTML='';chatUnread=0;updateChatUnread();}
+function clearChat(){q('chatMessages').innerHTML='';chatUnread=0;updateChatUnread();setChatCollapsed(false);}
 function appendChatSystem(text){
   const line=document.createElement('div');line.className='chat-system';line.textContent=text;q('chatMessages').appendChild(line);q('chatMessages').scrollTop=q('chatMessages').scrollHeight;
 }
@@ -75,7 +85,7 @@ function appendChatMessage(msg){
   const fallback=msg.side===SIDE.A?'HOST':'PLAYER 2';const displayName=normalizePlayerName(msg.name??currentRoom?.playerNames?.[msg.side]??fallback);
   const meta=document.createElement('span');meta.className='chat-meta';meta.textContent=own?`${displayName} (YOU)`:displayName;
   const body=document.createElement('span');body.textContent=msg.text;line.append(meta,body);q('chatMessages').appendChild(line);q('chatMessages').scrollTop=q('chatMessages').scrollHeight;
-  if(!own&&activeLogTab!=='chat'){chatUnread=Math.min(99,chatUnread+1);updateChatUnread();}
+  if(!own&&(activeLogTab!=='chat'||chatCollapsed)){chatUnread=Math.min(99,chatUnread+1);updateChatUnread();}
 }
 setChatAvailable(false);
 
@@ -108,7 +118,9 @@ function enterNetworkMode(ranked){
   if(currentRoom&&Boolean(currentRoom.config?.ranked)!==(ranked===true)){
     showNetworkPanel(true);activateTopButton(activeNetworkButton());setLobbyStatus('Leave or finish your current room before switching between Casual and Ranked.');return;
   }
-  setNetworkRankedMode(ranked,{activate:true});showNetworkPanel(true);scene.setMode('PVP');connectCoordinator();
+  setNetworkRankedMode(ranked,{activate:true});showNetworkPanel(true);
+  if(!currentRoom)scene.setMode('PVP');
+  connectCoordinator();
 }
 function setNetworkTeamSize(size,{send=true}={}){
   networkTeamSize=Math.max(2,Math.min(5,Number(size)||3));
@@ -272,6 +284,11 @@ q('declineDrawButton').onclick=()=>{hideDrawProposal();setDrawButton({visible:tr
 function resetRoomUi(message='Not currently in a room.'){
   closeNetworkDraft();currentRoom=null;networkMatchCompleteConfirmed=false;q('playerNameInput').disabled=false;scene.setReplaySpeed(networkReplaySpeed,{locked:false,notify:false});setRematchButton({visible:false});resetDrawUi();renderCurrentRoom();setLobbyConfigEditable(true);setLobbyStatus(message);setChatAvailable(false);
 }
+function prepareLocalModeSelection(){
+  if(currentRoom&&socket){try{socket.leaveRoom();}catch{}}
+  resetRoomUi('Not currently in a room.');resetDrawUi();setDrawButton({visible:false});hideMatchResult();showNetworkPanel(false);
+  scene.enterIdleState({startup:false});
+}
 function recordText(record){return record&&Number(record.games)>0?`${record.wins}-${record.draws??0}-${record.losses}`:'—';}
 function rankingRecord(entity,format){return entity?.formats?.[format]??{wins:0,draws:0,losses:0,games:0,winPct:0,rank:null,rating:1500};}
 function setRankingFormat(format){
@@ -416,7 +433,7 @@ async function handleNetworkMessage(msg){
     if(currentRoom){currentRoom.matchNumber=msg.matchNumber??currentRoom.matchNumber;currentRoom.draftPhase=null;currentRoom.playerNames=msg.playerNames??currentRoom.playerNames;renderCurrentRoom();}
     closeNetworkDraft();showNetworkPanel(false);q('lobbyConnectionBadge').textContent=currentRoom?.config?.ranked?'RANKED MATCH':'IN MATCH';q('lobbyConnectionBadge').className='lobby-badge locked';appendChatSystem(`${currentRoom?.config?.ranked?'Ranked match':'Match'} started — room chat remains available in the 2P CHAT tab.`);
     scene.setReplaySpeed(msg.config?.replaySpeed??currentRoom?.config?.replaySpeed??0.33,{locked:true,notify:false});
-    scene.beginNetworkMatch({matchId:msg.matchId,side:socket.side,timeoutsRemaining:msg.timeoutsRemaining?.[socket.side]??3,teamA:msg.teamA,teamB:msg.teamB});
+    hideMatchResult();scene.beginNetworkMatch({matchId:msg.matchId,side:socket.side,timeoutsRemaining:msg.timeoutsRemaining?.[socket.side]??3,teamA:msg.teamA,teamB:msg.teamB});
   }else if(msg.kind==='selection_timeout_granted')scene.applyNetworkTimeout(msg);
   else if(msg.kind==='round_declarations_locked'){setDrawButton({visible:true,disabled:true,label:'DRAW BETWEEN ROUNDS'});}
   else if(msg.kind==='round_package'){setDrawButton({visible:true,disabled:true,label:'DRAW BETWEEN ROUNDS'});scene.receiveNetworkRoundPackage(msg.package);}
@@ -473,6 +490,7 @@ q('refreshRoomsBtn').onclick=()=>socket?.listRooms();
 setLobbyConfigEditable(true);
 setNetworkReplaySpeed(0.33,{send:false});
 setNetworkRankedMode(false,{activate:false});
+activateTopButton(null);
 connectCoordinator();
 
 // ----- Quick 1P roster picker: no draft, variable 1v1–5v5 test shortcut. -----
@@ -513,9 +531,9 @@ function setRosterPickerValues({teamSize=3,teamA=[],teamB=[]}){
 function rosterPickerValues(){return {teamA:Array.from({length:rosterTeamSize},(_,i)=>q(`teamA${i}`).value),teamB:Array.from({length:rosterTeamSize},(_,i)=>q(`teamB${i}`).value)};}
 function openRosterPicker(){setRosterPickerValues(scene.getSinglePlayerTeams());q('rosterError').textContent='';rosterModal.classList.remove('hidden');rosterModal.setAttribute('aria-hidden','false');}
 function closeRosterPicker(){rosterModal.classList.add('hidden');rosterModal.setAttribute('aria-hidden','true');}
-q('rosterButton').onclick=()=>{activateTopButton(q('rosterButton'));showNetworkPanel(false);openRosterPicker();};q('closeRosterButton').onclick=closeRosterPicker;
+q('rosterButton').onclick=()=>{prepareLocalModeSelection();activateTopButton(q('rosterButton'));openRosterPicker();};q('closeRosterButton').onclick=closeRosterPicker;
 q('randomRosterButton').onclick=()=>{const pool=[...ROSTER_IDS];for(let i=pool.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[pool[i],pool[j]]=[pool[j],pool[i]];}setRosterPickerValues({teamSize:rosterTeamSize,teamA:pool.slice(0,rosterTeamSize),teamB:pool.slice(rosterTeamSize,rosterTeamSize*2)});q('rosterError').textContent='';};
-q('applyRosterButton').onclick=()=>{try{scene.configureSinglePlayerTeams(rosterPickerValues(),{source:'roster'});activateTopButton(q('rosterButton'));showNetworkPanel(false);q('rosterError').textContent='';closeRosterPicker();}catch(err){q('rosterError').textContent=err.message;}};
+q('applyRosterButton').onclick=()=>{try{hideMatchResult();scene.configureSinglePlayerTeams(rosterPickerValues(),{source:'roster'});activateTopButton(q('rosterButton'));showNetworkPanel(false);q('rosterError').textContent='';closeRosterPicker();}catch(err){q('rosterError').textContent=err.message;}};
 rosterModal.addEventListener('pointerdown',e=>{if(e.target===rosterModal)closeRosterPicker();});
 
 // ----- Stage 25A local match setup + draft (preserved) -----
@@ -534,7 +552,7 @@ function openMatchSetup(){
 function closeMatchSetup(){matchSetupModal.classList.add('hidden');matchSetupModal.setAttribute('aria-hidden','true');}
 function closeDraft(){if(draftAiTimer){clearTimeout(draftAiTimer);draftAiTimer=null;}draftState=null;draftModal.classList.add('hidden');draftModal.setAttribute('aria-hidden','true');}
 
-q('onePlayerDraftButton').onclick=openMatchSetup;
+q('onePlayerDraftButton').onclick=()=>{prepareLocalModeSelection();activateTopButton(q('onePlayerDraftButton'));openMatchSetup();};
 q('closeMatchSetupButton').onclick=closeMatchSetup;
 for(const b of document.querySelectorAll('[data-team-size]'))b.onclick=()=>{selectedTeamSize=Number(b.dataset.teamSize);for(const x of document.querySelectorAll('[data-team-size]'))x.classList.toggle('selected',x===b);q('setupBattleLabel').textContent=battleSizeLabel(selectedTeamSize);};
 q('beginDraftButton').onclick=()=>{closeMatchSetup();startLocalDraft(selectedTeamSize);};
@@ -562,7 +580,7 @@ function continueAiDraftIfNeeded(){
   draftAiTimer=setTimeout(()=>{draftAiTimer=null;if(!draftState||draftTurnSide()!==SIDE.B)return;const pick=deterministicAiChoice();if(pick)commitDraftPick(SIDE.B,pick);},260);
 }
 function finishLocalDraft(){
-  if(!draftState)return;const {teamSize,picksA,picksB}=draftState;if(picksA.length!==teamSize||picksB.length!==teamSize)return;closeDraft();scene.configureSinglePlayerTeams({teamA:picksA,teamB:picksB},{source:'vs AI draft'});activateTopButton(q('onePlayerDraftButton'));showNetworkPanel(false);
+  if(!draftState)return;const {teamSize,picksA,picksB}=draftState;if(picksA.length!==teamSize||picksB.length!==teamSize)return;closeDraft();hideMatchResult();scene.configureSinglePlayerTeams({teamA:picksA,teamB:picksB},{source:'vs AI draft'});activateTopButton(q('onePlayerDraftButton'));showNetworkPanel(false);
 }
 function draftPortraitPath(archetype){return `assets/draft_portraits/${encodeURIComponent(archetype)}.png`;}
 function draftPortrait(archetype,className='draft-portrait'){

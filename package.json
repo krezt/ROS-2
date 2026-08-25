@@ -1,9 +1,9 @@
 {
   "name": "ros2-simulation-core",
-  "version": "0.25.21-stage25u-ranked-persistence-hardening",
+  "version": "0.25.24-stage25x-warrior-vfx-monk-proc",
   "private": true,
   "type": "module",
-  "description": "Realm of Shinobi 2.0 deterministic combat \u2014 Stage 25U Ranked persistence hardening and diagnostics",
+  "description": "Realm of Shinobi 2.0 deterministic combat \u2014 Stage 25X Warrior ability VFX + Monk basic proc VFX",
   "scripts": {
     "test": "node --test",
     "demo": "node demo/stage23-demo.js",

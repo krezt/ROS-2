@@ -47,7 +47,7 @@ const AFFLICTED_STATUS_KEYS=new Set(['poison','bleed','stun','silence','taunt','
 export class RosBattleScene extends Phaser.Scene {
   constructor(){
     super('RosBattleScene');
-    this.mode='SINGLE_PLAYER';
+    this.mode='IDLE';
     this.playerSide=SIDE.A;
     this.networkSocket=null;
     this.networkRoundResult=null;
@@ -144,6 +144,19 @@ export class RosBattleScene extends Phaser.Scene {
     this.load.image('vfx-shinobi-regen','assets/vfx/shinobi-regen-potion-cast.png');
     this.load.image('vfx-shinobi-bleed','assets/vfx/shinobi-bleed-burst.png');
     this.load.image('vfx-shinobi-imbue','assets/vfx/shinobi-bleed-imbue-cast.png');
+    this.load.image('vfx-monk-palm','assets/vfx/monk-palm-strike.png');
+    this.load.image('vfx-monk-flurry','assets/vfx/monk-flurry.png');
+    this.load.image('vfx-monk-chi-wave','assets/vfx/monk-chi-wave.png');
+    this.load.image('vfx-monk-counterstance','assets/vfx/monk-counterstance.png');
+    this.load.image('vfx-monk-second-wind','assets/vfx/monk-second-wind.png');
+    this.load.image('vfx-monk-basic-proc','assets/vfx/monk-basic-proc.png');
+    this.load.image('vfx-warrior-power-strikes','assets/vfx/warrior-power-strikes-priority.png');
+    this.load.image('vfx-warrior-insult','assets/vfx/warrior-insult-cast.png');
+    this.load.image('vfx-warrior-shieldwall-redirect','assets/vfx/warrior-shieldwall-redirect.png');
+    this.load.image('vfx-warrior-warhorn-cast','assets/vfx/warrior-warhorn-cast.png');
+    this.load.image('vfx-warrior-shieldwall-cast','assets/vfx/warrior-shieldwall-cast.png');
+    this.load.image('vfx-warrior-warhorn-allies','assets/vfx/warrior-warhorn-allies.png');
+    this.load.image('vfx-warrior-dig-in','assets/vfx/warrior-dig-in.png');
   }
 
   create(){
@@ -152,8 +165,43 @@ export class RosBattleScene extends Phaser.Scene {
     this.input.on('pointermove',p=>this.onPointerMove(p));
     this.input.on('pointerdown',p=>this.onBoardPointer(p));
     this.input.keyboard?.on('keydown-ESC',()=>this.cancelTargeting());
-    this.startSinglePlayer({source:'roster'});
+    this.enterIdleState({startup:true});
     window.rosScene=this;
+  }
+
+  cleanupMatchState({clearBattlefield=true,clearCombatLog=false,dispatchReset=true}={}){
+    if(this.timerHandle){clearInterval(this.timerHandle);this.timerHandle=null;}
+    this.setWaitingForOpponent(false);
+    this.networkRoundResult=null;this.busy=false;this.session=null;this.pendingAbility=null;this.selectedActorId=null;this.inspectedUnitId=null;
+    this.match=null;this.stateView=null;this.matchStats=null;this.matchOutcomeShown=false;
+    this.replayEventById?.clear?.();this.loggedReplayEventIds?.clear?.();this.replayLogState=null;
+    this.clearPreview();if(clearBattlefield)this.clearBattlefield();
+    if(clearCombatLog){const log=document.getElementById('combatLog');if(log)log.innerHTML='';}
+    const round=document.getElementById('roundNo');if(round)round.textContent='—';
+    const timer=document.getElementById('timer');if(timer){timer.textContent='--:--';timer.classList.remove('danger');}
+    const count=document.getElementById('assignedCount');if(count)count.textContent='0 / 0';
+    const submit=document.getElementById('submitButton');if(submit)submit.disabled=true;
+    const hold=document.getElementById('holdButton');if(hold)hold.disabled=true;
+    this.emitSelectionUi();this.updateTimeControl();
+    if(dispatchReset){try{window.dispatchEvent(new CustomEvent('ros:match-reset'));}catch{}}
+  }
+
+  prepareForNewMatch(){
+    this.cleanupMatchState({clearBattlefield:true,clearCombatLog:true,dispatchReset:true});
+  }
+
+  enterIdleState({startup=false}={}){
+    this.mode='IDLE';this.replaySpeedLocked=false;this.prepareForNewMatch();
+    this.setStatus(startup?'Select a game mode from the top bar to begin.':'Match cleared. Select a game mode from the top bar to begin.');
+  }
+
+  finalizeCompletedMatch(){
+    if(this.timerHandle){clearInterval(this.timerHandle);this.timerHandle=null;}
+    this.busy=false;this.pendingAbility=null;this.selectedActorId=null;this.session=null;this.clearPreview();this.setWaitingForOpponent(false);
+    const count=document.getElementById('assignedCount');if(count)count.textContent='0 / 0';
+    const submit=document.getElementById('submitButton');if(submit)submit.disabled=true;
+    const hold=document.getElementById('holdButton');if(hold)hold.disabled=true;
+    this.emitSelectionUi();this.updateTimeControl();
   }
 
   resetMatchStats(state){
@@ -175,6 +223,7 @@ export class RosBattleScene extends Phaser.Scene {
     const stats=this.matchStats?.snapshot?.()??null;
     this.setStatus(`${won?'Victory':'Defeat'}. Winner: Side ${outcome?.winner??'—'}.`);
     this.log(`${won?'VICTORY':'DEFEAT'} — Side ${outcome?.winner??'—'} wins the match.`,'system');
+    this.finalizeCompletedMatch();
     try{
       window.dispatchEvent(new CustomEvent('ros:match-complete',{detail:{
         result:won?'VICTORY':'DEFEAT',winner:outcome?.winner??null,playerSide,stats
@@ -189,7 +238,7 @@ export class RosBattleScene extends Phaser.Scene {
     const playerSide=this.playerSelectionSide(),stats=this.matchStats?.snapshot?.()??null;
     this.setStatus('Draw by mutual agreement.');
     this.log('DRAW — both players agreed to end the match.','system');
-    this.emitSelectionUi();this.updateTimeControl();
+    this.finalizeCompletedMatch();
     try{window.dispatchEvent(new CustomEvent('ros:match-complete',{detail:{result:'DRAW',winner:null,playerSide,stats}}));}catch{}
   }
 
@@ -214,8 +263,8 @@ export class RosBattleScene extends Phaser.Scene {
   }
 
   startSinglePlayer({source='roster'}={}){
+    this.prepareForNewMatch();
     this.mode='SINGLE_PLAYER';this.timeoutsRemaining=3;this.setWaitingForOpponent(false);this.setReplaySpeed(this.replaySpeed,{locked:false,notify:false});
-    this.clearBattlefield();
     const {teamA,teamB}=this.singlePlayerTeams;
     const state=createTeamBattleState({teamA,teamB,matchId:`STAGE25A-LOCAL-${teamA.length}V${teamB.length}`});
     this.match=new LocalSinglePlayerMatch({state,aiDifficulty:'NORMAL'});
@@ -228,19 +277,16 @@ export class RosBattleScene extends Phaser.Scene {
   }
 
   setMode(mode){
-    this.mode=mode;
-    if(mode==='SINGLE_PLAYER') this.startSinglePlayer({source:'roster'});
-    else {
-      this.clearBattlefield();this.match=null;this.session=null;this.selectedActorId=null;this.inspectedUnitId=null;this.pendingAbility=null;
-      this.emitSelectionUi();this.updateTimeControl();
-      this.setWaitingForOpponent(false);this.log('2P network mode enabled. The production coordinator connects automatically.','system');
-      this.setStatus('Connecting automatically to the multiplayer coordinator. Create or join a room when the lobby is online.');
-    }
+    if(mode==='SINGLE_PLAYER'){this.mode='SINGLE_PLAYER';return;}
+    this.prepareForNewMatch();this.mode=mode;
+    this.log('2P network mode enabled. The production coordinator connects automatically.','system');
+    this.setStatus('Connecting automatically to the multiplayer coordinator. Create or join a room when the lobby is online.');
   }
   setNetworkSocket(socket){this.networkSocket=socket;this.updateTimeControl();}
 
   beginNetworkMatch({matchId,side,timeoutsRemaining=3,teamA=DEFAULT_TEAM_A,teamB=DEFAULT_TEAM_B}){
-    this.mode='PVP';this.playerSide=side;this.timeoutsRemaining=timeoutsRemaining;this.setWaitingForOpponent(false);this.clearBattlefield();
+    this.prepareForNewMatch();
+    this.mode='PVP';this.playerSide=side;this.timeoutsRemaining=timeoutsRemaining;this.setWaitingForOpponent(false);
     const check=validatePlaytestTeams(teamA,teamB,ROSTER_IDS);
     if(!check.ok)throw new Error(check.error);
     this.stateView=createTeamBattleState({teamA:check.teamA,teamB:check.teamB,matchId});
@@ -293,11 +339,8 @@ export class RosBattleScene extends Phaser.Scene {
   }
 
   prepareNetworkRematch(){
-    this.setWaitingForOpponent(false);if(this.timerHandle){clearInterval(this.timerHandle);this.timerHandle=null;}
-    this.networkRoundResult=null;this.busy=false;this.session=null;this.pendingAbility=null;this.selectedActorId=null;this.inspectedUnitId=null;
-    this.clearBattlefield();this.match=null;this.stateView=null;this.matchStats=null;this.matchOutcomeShown=false;
-    try{window.dispatchEvent(new CustomEvent('ros:match-reset'));}catch{}
-    this.emitSelectionUi();this.updateTimeControl();this.setStatus('Rematch accepted. Waiting for the new network draft.');
+    this.prepareForNewMatch();this.mode='PVP';
+    this.setStatus('Rematch accepted. Waiting for the new network draft.');
   }
 
   openNetworkRound(roundNumber){
@@ -468,6 +511,9 @@ export class RosBattleScene extends Phaser.Scene {
 
   updateTimeControl(){
     const b=document.getElementById('timeControlButton');if(!b)return;
+    if(this.mode==='IDLE'){
+      b.textContent='PAUSE';b.disabled=true;b.title='Select a game mode to begin.';return;
+    }
     if(this.mode==='SINGLE_PLAYER'){
       b.textContent=this.session?.isPaused()?'RESUME':'PAUSE';
       b.disabled=!this.session||this.session.locked||this.busy;
@@ -709,6 +755,8 @@ export class RosBattleScene extends Phaser.Scene {
   prepareReplayLog(events,state){
     this.replayEventById=new Map(events.map(e=>[e.eventId,e]));
     this.loggedReplayEventIds=new Set();this.replayLogState=structuredClone(state);
+    // Presentation-only: Power Strikes A1 fires once, at the Warrior's first actual attack priority.
+    this.powerStrikesPriorityFxShown=new Set();
   }
 
   logReplayEventId(id){
@@ -776,7 +824,9 @@ export class RosBattleScene extends Phaser.Scene {
       (raw==='berserk' && ability==='BERSERK') ||
       (raw==='blind' && ability==='MIND_SHATTER')
     );
-    if(!shouldFloatStatusFeedback(command) && !mysticSpecialFx)return;
+    const monkBasicProcFx = !ending && command.payload?.eventType==='STATUS_APPLY' && targetView &&
+      source?.unit?.archetypeId==='Monk' && raw==='atk_up' && ability==='MONK_ATTACK' && command.payload?.data?.proc===true;
+    if(!shouldFloatStatusFeedback(command) && !mysticSpecialFx && !monkBasicProcFx)return;
     // Bleed refreshes may arrive repeatedly in one attack sequence; keep those quiet. Poison contributions stay visible so every poison ability communicates the amount added.
     if(command.payload?.eventType==='STATUS_APPLY'&&wasPresent&&rawKey==='bleed')return;
     const control=new Set(['stun','silence','taunt','berserk','root','suppression','spellbreak']);
@@ -804,6 +854,9 @@ export class RosBattleScene extends Phaser.Scene {
       else if(raw==='berserk') mysticKey='vfx-mystic-berserk';
       else if(raw==='blind') mysticKey='vfx-mystic-psychic';
       this.pulseImageFx(mysticKey,targetView.container.x,targetView.container.y-22,{scale:.34,duration:440,alpha:.96,scaleTo:.44,depth:12});
+    }
+    if(monkBasicProcFx){
+      this.pulseImageFx('vfx-monk-basic-proc',targetView.container.x,targetView.container.y-22,{scale:.34,duration:440,alpha:.96,scaleTo:.44,depth:12});
     }
     if(shouldFloatStatusFeedback(command)){
       const poisonContribution=raw==='poison'&&command.payload?.eventType==='STATUS_APPLY'?Number(command.payload?.contribution?.amount):NaN;
@@ -855,6 +908,10 @@ export class RosBattleScene extends Phaser.Scene {
       if(!v.animated)return Promise.resolve();
       return this.playChampionClip(v,'cast',{direction:v.facing,durationMs:this.replayDuration(230),resolveAtRatio:.72});
     }
+    if(v.unit?.archetypeId==='Monk'&&['FLURRY','COUNTERSTANCE','SECOND_WIND'].includes(abilityId)){
+      this.spawnMonkSignatureFx(v,abilityId,command.targetId,target);
+      return Promise.resolve();
+    }
     if(v.unit?.archetypeId!=='Warrior'||!['DIG_IN','SHIELDWALL'].includes(abilityId))return Promise.resolve();
     this.spawnWarriorSignatureFx(v,abilityId,command.targetId);
     if(!v.animated)return Promise.resolve();
@@ -869,8 +926,9 @@ export class RosBattleScene extends Phaser.Scene {
     return ['ARCANE_SURGE','ARCANE_ECHO','ARCANE_WARD','FIREBALL','METEOR'].includes(String(abilityId??'').toUpperCase());
   }
 
-  pulseImageFx(key,px,py,{scale=.16,duration=260,depth=12,alpha=.9,scaleTo=null,yoyo=false,repeat=0,angle=0,onComplete=null}={}){
+  pulseImageFx(key,px,py,{scale=.16,duration=260,depth=12,alpha=.9,scaleTo=null,yoyo=false,repeat=0,angle=0,flipX=false,onComplete=null}={}){
     const fx=this.add.image(px,py,key).setOrigin(.5).setScale(scale).setAlpha(alpha).setDepth(depth).setAngle(angle);
+    if(fx?.setFlipX)fx.setFlipX(Boolean(flipX));
     this.tweens.add({
       targets:fx,
       scale:scaleTo??scale*1.22,
@@ -1143,38 +1201,34 @@ export class RosBattleScene extends Phaser.Scene {
   spawnWarriorSignatureFx(v,abilityId,targetId=null){
     if(!v||v.unit?.archetypeId!=='Warrior')return;
     const id=String(abilityId??'').toUpperCase();
-    const x=v.container.x,y=v.container.y;
+    const pulse=(key,unitView,scale=.34,duration=440,scaleTo=.44,extra={})=>{
+      if(!unitView?.container)return;
+      return this.pulseImageFx(key,unitView.container.x,unitView.container.y-22,{scale,duration,alpha:.96,scaleTo,depth:12,...extra});
+    };
     if(id==='WARHORN'){
-      const facing=v.facing??'S';
-      const offsets={N:[7,-50,-Math.PI/2],S:[10,-49,Math.PI/10],E:[18,-44,0],W:[-18,-44,Math.PI]};
-      const [ox,oy,rot]=offsets[facing]??offsets.S;
-      const horn=this.add.image(x+ox,y+oy,'vfx-warhorn').setOrigin(.5).setRotation(rot).setScale(.82).setAlpha(.95);
-      this.tweens.add({targets:horn,scale:1.02,alpha:.72,duration:this.replayDuration(150),yoyo:true,onComplete:()=>horn.destroy()});
-      const sx=x+ox+(facing==='W'?-16:(facing==='E'?16:0)), sy=y+oy+(facing==='N'?-12:(facing==='S'?12:0));
-      for(let i=0;i<3;i++){
-        const ring=this.add.ellipse(sx,sy,10+i*6,5+i*3,0xf2c35e,.03).setStrokeStyle(2,0xf2c35e,.75-i*.15);
-        this.tweens.add({targets:ring,scaleX:1.7,scaleY:1.7,alpha:0,duration:this.replayDuration(180+i*45),delay:this.replayDuration(i*35),onComplete:()=>ring.destroy()});
-      }
-      return;
-    }
-    if(id==='DIG_IN'){
-      const ring=this.add.ellipse(x,y+15,34,14,0x6d9cff,.08).setStrokeStyle(3,0xe9c866,.9);
-      const shield=this.add.ellipse(x,y-15,28,42,0x7da9ff,.08).setStrokeStyle(3,0x9fc7ff,.8);
-      this.tweens.add({targets:[ring,shield],scaleX:1.35,scaleY:1.18,alpha:0,duration:this.replayDuration(240),onComplete:()=>{ring.destroy();shield.destroy();}});
-      for(let i=0;i<5;i++){
-        const dust=this.add.circle(x-12+i*6,y+17-(i%2)*2,2,0xc6aa77,.55);
-        this.tweens.add({targets:dust,y:dust.y-7-(i%3)*2,alpha:0,duration:this.replayDuration(170+i*15),onComplete:()=>dust.destroy()});
-      }
-      return;
-    }
-    if(id==='SHIELDWALL'){
-      const wall=this.add.ellipse(x,y-14,34,50,0x729dff,.06).setStrokeStyle(4,0xe8c763,.88);
-      this.tweens.add({targets:wall,scaleX:1.45,scaleY:1.12,alpha:0,duration:this.replayDuration(260),onComplete:()=>wall.destroy()});
+      // B2 announces the rally on the Warrior; B4 follows across every living ally as a distinct second beat.
+      pulse('vfx-warrior-warhorn-cast',v,.34,420,.44,{flipX:(v.facing??'S')==='W'});
+      const allies=[...this.unitViews.values()].filter(other=>other?.unit?.side===v.unit.side&&other.unit.lifeState===LIFE_STATE.ALIVE);
+      this.time.delayedCall(this.replayDuration(120),()=>{
+        allies.forEach(ally=>pulse('vfx-warrior-warhorn-allies',ally,.32,440,.42));
+      });
       return;
     }
     if(id==='INSULT'){
-      const shout=this.add.text(x,y-70,'!?!',{fontFamily:'monospace',fontSize:'15px',fontStyle:'bold',color:'#ffb45c',stroke:'#3b0b0b',strokeThickness:3}).setOrigin(.5);
-      this.tweens.add({targets:shout,y:shout.y-10,scale:1.25,alpha:0,duration:this.replayDuration(260),ease:'Back.easeOut',onComplete:()=>shout.destroy()});
+      // A2 is authored facing east; mirror only when the Warrior is facing west. The existing shout projectile remains unchanged.
+      pulse('vfx-warrior-insult',v,.34,440,.44,{flipX:(v.facing??'S')==='W'});
+      return;
+    }
+    if(id==='SHIELDWALL'){
+      pulse('vfx-warrior-shieldwall-cast',v,.34,440,.44,{flipX:(v.facing??'S')==='W'});
+      return;
+    }
+    if(id==='DIG_IN'){
+      pulse('vfx-warrior-dig-in',v,.34,440,.44);
+      return;
+    }
+    if(id==='POWER_STRIKE'){
+      pulse('vfx-warrior-power-strikes',v,.34,420,.44,{flipX:(v.facing??'S')==='W'});
     }
   }
 
@@ -1258,6 +1312,38 @@ export class RosBattleScene extends Phaser.Scene {
     }
   }
 
+  spawnMonkSignatureFx(v,abilityId,targetId=null,targetPos=null){
+    if(!v||v.unit?.archetypeId!=='Monk')return;
+    const id=String(abilityId??'').toUpperCase();
+    const x=v.container.x,y=v.container.y;
+    const pulse=(key,unitView,scale=.34,duration=440,scaleTo=.44)=>{
+      if(!unitView?.container)return;
+      this.pulseImageFx(key,unitView.container.x,unitView.container.y-22,{scale,duration,alpha:.96,scaleTo,depth:12});
+    };
+    if(id==='PALM_HIT'){
+      pulse('vfx-monk-palm',v,.32,380,.41);
+      return;
+    }
+    if(id==='FLURRY'){
+      pulse('vfx-monk-flurry',v,.34,440,.44);
+      return;
+    }
+    if(id==='CHI_WAVE'){
+      for(const ally of this.unitViews.values()){
+        if(ally?.unit?.side!==v.unit.side||ally.unit.lifeState!==LIFE_STATE.ALIVE)continue;
+        pulse('vfx-monk-chi-wave',ally,.34,440,.44);
+      }
+      return;
+    }
+    if(id==='COUNTERSTANCE'){
+      pulse('vfx-monk-counterstance',v,.34,440,.44);
+      return;
+    }
+    if(id==='SECOND_WIND'){
+      pulse('vfx-monk-second-wind',v,.34,440,.44);
+    }
+  }
+
   spawnElectromancerSignatureFx(v,abilityId,targetId=null,targetPos=null){
     if(!v||v.unit?.archetypeId!=='Electromancer')return;
     const id=String(abilityId??'').toUpperCase();
@@ -1296,7 +1382,7 @@ export class RosBattleScene extends Phaser.Scene {
       [PRESENTATION_COMMAND.ATTACK_CUE]:run(c=>this.animateAttack(c)),
       [PRESENTATION_COMMAND.ATTACK_IMPACT]:logOnly,
       [PRESENTATION_COMMAND.COUNTER_CUE]:run(c=>this.animateCounterCue(c)),
-      [PRESENTATION_COMMAND.INTERCEPT_CUE]:logOnly,
+      [PRESENTATION_COMMAND.INTERCEPT_CUE]:run(c=>this.animateInterceptCue(c)),
       [PRESENTATION_COMMAND.CAST_CUE]:run(c=>this.animateChargeStart(c)),
       [PRESENTATION_COMMAND.CAST_COMPLETE]:run(c=>this.animateSpellResolution(c)),
       [PRESENTATION_COMMAND.CAST_INTERRUPT]:run(c=>this.animateCastEnd(c,'INTERRUPTED')),
@@ -1428,6 +1514,7 @@ export class RosBattleScene extends Phaser.Scene {
     this.spawnShinobiSignatureFx(v,abilityId,command.targetId,target);
     this.spawnElectromancerSignatureFx(v,abilityId,command.targetId,target);
     this.spawnMysticSignatureFx(v,abilityId,command.targetId,target);
+    this.spawnMonkSignatureFx(v,abilityId,command.targetId,target);
     this.spawnMageSignatureFx(v,abilityId,command.targetId,target);
     if(!v.animated)return this.flashUnit(command.actorId,0x8e72ff);
     return this.playChampionClip(v,'cast',{direction:v.facing,durationMs:this.replayDuration(250),resolveAtRatio:.68});
@@ -1446,8 +1533,21 @@ export class RosBattleScene extends Phaser.Scene {
     this.tweens.add({targets:halo,scale:3.3,alpha:0,duration:this.replayDuration(210),onComplete:()=>halo.destroy()});
   }
 
+  maybeShowPowerStrikesPriorityFx(v,command){
+    if(!v||v.unit?.archetypeId!=='Warrior')return;
+    const actionId=String(command.payload?.abilityId??command.payload?.actionId??this.lastActionByActor.get(command.actorId)??'').toUpperCase();
+    const kind=String(command.payload?.kind??'').toUpperCase();
+    const attackReason=String(command.payload?.attackReason??'').toUpperCase();
+    if(actionId!=='POWER_STRIKE'||kind==='COUNTER_MOVE'||attackReason==='COUNTER')return;
+    this.powerStrikesPriorityFxShown??=new Set();
+    if(this.powerStrikesPriorityFxShown.has(command.actorId))return;
+    this.powerStrikesPriorityFxShown.add(command.actorId);
+    this.spawnWarriorSignatureFx(v,'POWER_STRIKE',command.targetId);
+  }
+
   animateMove(command){
     const v=this.unitViews.get(command.actorId),to=command.payload.to;if(!v||!to)return Promise.resolve();
+    this.maybeShowPowerStrikesPriorityFx(v,command);
     const p=gridToWorld(to,this.view),duration=this.replayDuration(110);
     if(v.animated&&v.sprite){
       v.facing=directionFromCells(v.unit.position,to,v.facing??'S');
@@ -1624,6 +1724,7 @@ export class RosBattleScene extends Phaser.Scene {
   }
 
   animateMonkPalmHit(a,t){
+    this.spawnMonkSignatureFx(a,'PALM_HIT',t?.unit?.unitId??null,t?.unit?.position??null);
     const dx=t.container.x-a.container.x,dy=t.container.y-a.container.y,len=Math.max(1,Math.hypot(dx,dy));
     a.facing=(a.unit?.position&&t.unit?.position)?directionFromCells(a.unit.position,t.unit.position,a.facing??'S'):directionFromDelta(dx,dy,a.facing??'S');
     const duration=this.replayDuration(190),impactRatio=.68;
@@ -1654,6 +1755,16 @@ export class RosBattleScene extends Phaser.Scene {
     return Promise.all([clip,fx]).then(()=>undefined);
   }
 
+  animateInterceptCue(command){
+    const warrior=this.unitViews.get(command.actorId);
+    const intended=this.unitViews.get(command.payload?.intendedTargetId??command.targetId);
+    if(!warrior||warrior.unit?.archetypeId!=='Warrior'||!intended?.container)return Promise.resolve();
+    this.pulseImageFx('vfx-warrior-shieldwall-redirect',intended.container.x,intended.container.y-22,{
+      scale:.34,duration:400,alpha:.96,scaleTo:.44,depth:12
+    });
+    return new Promise(resolve=>this.time.delayedCall(this.replayDuration(90),resolve));
+  }
+
   animateCounterCue(command){
     const v=this.unitViews.get(command.actorId);if(!v)return Promise.resolve();
     // COUNTER is an authoritative reaction marker, not the counter attack itself.
@@ -1670,7 +1781,8 @@ export class RosBattleScene extends Phaser.Scene {
 
   animateAttack(command){
     const a=this.unitViews.get(command.actorId),t=this.unitViews.get(command.targetId);if(!a||!t)return Promise.resolve();
-    const actionId=String(command.payload?.actionId??this.lastActionByActor.get(command.actorId)??'').toUpperCase();
+    const actionId=String(command.payload?.abilityId??command.payload?.actionId??this.lastActionByActor.get(command.actorId)??'').toUpperCase();
+    this.maybeShowPowerStrikesPriorityFx(a,command);
     if(a.unit?.archetypeId==='Mystic')return this.animateMysticDaggerAttack(a,t);
     if(a.unit?.archetypeId==='Archer')return this.animateArcherAttack(a,t);
     if(a.unit?.archetypeId==='Mage')return this.animateMageAttack(a,t);

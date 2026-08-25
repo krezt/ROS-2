@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Realm of Shinobi 2.0 — Stage 25R Multiplayer Draw + UI Polish</title>
+  <title>Realm of Shinobi 2.0 — Stage 25X Warrior VFX + Monk Proc</title>
   <link rel="stylesheet" href="./styles.css">
   <script src="https://cdn.jsdelivr.net/npm/phaser@3.90.0/dist/phaser.js"></script>
 </head>
@@ -15,9 +15,9 @@
       <small>ROS2 Alpha — Multiplayer Playtest</small>
     </div>
     <div class="round-strip">
-      <div class="round-id"><span>ROUND</span> <strong id="roundNo">1</strong></div>
+      <div class="round-id"><span>ROUND</span> <strong id="roundNo">—</strong></div>
       <span class="round-separator">—</span>
-      <div id="timer">02:00</div>
+      <div id="timer">--:--</div>
       <button id="replaySpeedButton" title="Replay speed">REPLAY 0.33×</button>
       <button id="timeControlButton">PAUSE</button>
       <button id="drawProposalButton" class="draw-proposal-button hidden" type="button" title="Offer a mutually agreed draw to your opponent">PROPOSE DRAW</button>
@@ -28,7 +28,7 @@
       <input id="playerNameInput" maxlength="20" autocomplete="nickname" spellcheck="false" placeholder="Your name">
     </div>
     <div id="modeButtons">
-      <button id="rosterButton" class="roster-button active">1P ROSTER</button>
+      <button id="rosterButton" class="roster-button">1P ROSTER</button>
       <button id="onePlayerDraftButton">1P DRAFT</button>
       <button id="pvpButton">2P DRAFT</button>
       <button id="rankedButton" class="ranked-mode-button">2P RANKED</button>
@@ -43,7 +43,7 @@
           <span class="opponent-wait-pulse"></span>
           <div><strong>WAITING FOR OPPONENT…</strong><small>Your replay is complete. The next round will open when the other player finishes theirs.</small></div>
         </div>
-        <div id="statusLine">Choose a champion.</div>
+        <div id="statusLine">Select a game mode from the top bar to begin.</div>
       </section>
       <section class="panel combat-log-panel" id="logPanel">
         <div class="panel-heading log-chat-heading">
@@ -51,7 +51,10 @@
             <button id="combatLogTabButton" class="log-chat-tab active" type="button" role="tab" aria-selected="true">COMBAT LOG</button>
             <button id="chatTabButton" class="log-chat-tab" type="button" role="tab" aria-selected="false" disabled>2P CHAT <span id="chatUnreadBadge" class="chat-unread hidden">0</span></button>
           </div>
-          <button id="clearLogButton">CLEAR</button>
+          <div class="log-chat-actions">
+            <button id="clearLogButton">CLEAR</button>
+            <button id="chatCollapseButton" class="hidden" type="button" aria-expanded="true" aria-controls="multiplayerChat">COLLAPSE</button>
+          </div>
         </div>
         <div id="combatLog"></div>
         <div id="multiplayerChat" class="multiplayer-chat hidden" role="tabpanel" aria-label="2P room chat">

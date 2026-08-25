@@ -1,4 +1,14 @@
-# Realm of Shinobi 2.0 — Stage 25U Ranked Persistence Hardening
+# Realm of Shinobi 2.0 — Stage 25X
+
+Stage 25V preserves the Stage 25U durable Ranked/Supabase persistence system and Stage 25T portrait draft polish, while adding startup/lifecycle and Monk quality-of-life changes.
+
+- No match auto-starts when the client loads; players explicitly choose a mode from the top bar.
+- Match state/timers/action UI/combat log are cleaned before every new match or rematch.
+- 2P chat can be collapsed/expanded without removing the chat tab or unread indicator.
+- Monk Counterstance uses the free-counter + 2-square pursuit hybrid profile and grants +5 Movement for its 3-round duration.
+- Second Wind explicitly reports its 10% max-HP Regen and current Monk per-round amount in the ability details.
+- Ranked persistence behavior remains Stage 25U.
+
 
 Stage 25U preserves all Stage 25T gameplay/visual content and fixes the hosted Ranked persistence path: modern Supabase secret-key authentication, verified read-after-write persistence, fail-closed Ranked on hosted ephemeral storage, and an in-game Ranked storage health indicator. See `server/README.md` for deployment details.
 
@@ -51,3 +61,27 @@ npm test
 ```
 
 Current result: **628 / 628 tests passing**, including live two-WebSocket Ranked result verification, separate format ratings, champion analytics, schema migration, and the existing deterministic multiplayer regression suite.
+## Stage 25W — Monk ability VFX + Second Wind
+- Added approved Monk 4x4 source VFX sheet and deterministic isolated runtime cuts:
+  - A1 Palm Hits -> Monk
+  - C1 Flurry Style -> Monk
+  - D1 Chi Wave -> all living allies simultaneously
+  - B2 Counterstance -> Monk
+  - D2 Second Wind -> Monk
+- Runtime crops are alpha-cleaned, individually trimmed, and padded with transparent borders to prevent clipping/neighbor bleed.
+- Second Wind Regen increased from 10% to 15% max HP per round for 3 rounds (242 HP/round at base Monk max HP).
+
+
+## Stage 25X — Warrior ability VFX + Monk basic proc
+- Added the approved Warrior 4x4 VFX source sheet and deterministic isolated runtime cuts:
+  - A1 Power Strikes: Warrior's first actual non-counter attack priority for the action.
+  - A2 Insult: over Warrior on cast; mirrors when facing West while the existing projectile-to-target remains.
+  - B1 Shieldwall redirect: over the intended ally whenever a melee strike is intercepted and redirected to Warrior.
+  - B2 Warhorn: over Warrior on cast, followed by B4 over every living affected ally.
+  - B3 Shieldwall: over Warrior on cast; mirrors when facing West.
+  - B4 Warhorn ally rally: over all living allies after the B2 cast beat.
+  - D2 Dig In: over Warrior on cast.
+- Added Monk B1 as the successful `MONK_ATTACK` Opening-proc VFX.
+- Warrior directional VFX use image mirroring rather than separate duplicated art.
+- Runtime VFX are cut from inspected transparent gutters, alpha-cleaned, tightly trimmed, and padded by 10 transparent pixels so no neighboring effect can bleed into a runtime asset and no true effect edge is clipped.
+- No combat mechanics or balance values changed.

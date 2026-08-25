@@ -159,7 +159,8 @@ function statusTooltipText(status,{poisonAmount=null}={}){
     shadowstep_crit:`Beneficial. Critical hits use the Shadowstep crit-damage multiplier while active.`,
     arcane_echo:'Beneficial. The next spell resolves twice; the second resolution deals 150% damage, then Arcane Echo is consumed.',
     warhorn_attacks_up:'Beneficial. Warhorn grants +1 maximum swing while active.',
-    warhorn_movement_up:'Beneficial. Warhorn grants +2 Movement while active.'
+    warhorn_movement_up:'Beneficial. Warhorn grants +2 Movement while active.',
+    counterstance_movement_up:'Beneficial. Counterstance grants the Monk +5 Movement while active.'
   };
   const fallback=(NEGATIVE_STATUS_KEYS.has(key)?'Negative status.':'Beneficial status.');
   return map[key]??fallback;
@@ -235,7 +236,15 @@ function summarizeEffect(actor,effect,ability){
   }
   if(type==='HEAL_PERCENT_ROLL')return `Heal ${fmtPct((effect.minPct??0)*100)}–${fmtPct((effect.maxPct??0)*100)} max HP`;
   if(type==='FULL_HEAL')return 'Restore to full HP';
-  if(type==='APPLY_STATUS')return `${String(effect.key).replaceAll('_',' ')} • ${effect.duration??'?'} round${effect.duration===1?'':'s'}${Number(effect.chance)<1?` • ${fmtPct(effect.chance*100)} chance`:''}`;
+  if(type==='APPLY_STATUS'){
+    const key=String(effect.key??'').toLowerCase();
+    if(key==='regen'&&ability?.targetType===TARGET_TYPE.SELF){
+      const pct=Number.isFinite(effect.data?.pct)?effect.data.pct:.10;
+      const amount=Math.max(1,Math.floor((actor.stats?.maxHP??0)*pct));
+      return `Regen ${amount} HP/round (${fmtPct(pct*100)} max HP) • ${effect.duration??'?'} round${effect.duration===1?'':'s'}`;
+    }
+    return `${String(effect.key).replaceAll('_',' ')} • ${effect.duration??'?'} round${effect.duration===1?'':'s'}${Number(effect.chance)<1?` • ${fmtPct(effect.chance*100)} chance`:''}`;
+  }
   if(type==='LIFE_DRAIN')return `${scaledRange(effect.min,effect.max,directMultiplier(actor,'SDM'))} magical damage and heal for damage dealt`;
   if(type==='CURRENT_HP_DAMAGE')return `${Math.round((effect.fraction??0)*100)}% current-HP damage`;
   if(type==='POISON_FLAT_ROLL')return `${scaledRange(effect.min,effect.max,directMultiplier(actor,effect.scalesWith??'SDM'))} Poison to affected targets`;
@@ -246,6 +255,7 @@ function summarizeEffect(actor,effect,ability){
   if(type==='RESURRECT_ONLY')return `Resurrect a KO'd ally at ${fmtPct((effect.revivePctMaxHP??.5)*100)} max HP${effect.cleanse?' and cleanse statuses':''}`;
   if(type==='TEMP_ATTACKS_MULTIPLIER')return `${effect.factor??1}× attack pool for ${effect.duration??'?'} rounds`;
   if(type==='TEMP_MOVEMENT_MULTIPLIER')return `${effect.factor??1}× Movement pool for ${effect.duration??'?'} rounds`;
+  if(type==='TEMP_MOVEMENT_MAX')return `+${Math.max(0,Math.trunc(effect.amount??0))} Movement for ${effect.duration??'?'} rounds`;
   if(type==='STRIP_DEFENSIVE_BUFF')return `Strip ${effect.count??1} defensive buff`;
   if(type==='REMOVE_STATUS')return `Remove ${String(effect.key??'status').replaceAll('_',' ')}`;
   if(type==='STRIP_BENEFICIAL')return `Strip ${effect.count??1} beneficial status`;

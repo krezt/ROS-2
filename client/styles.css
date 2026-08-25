@@ -285,3 +285,11 @@ aside{height:auto;overflow:visible;min-width:0;margin:0;grid-area:auto!important
 .ranked-persistence-status.checking{border-color:#5f5c3b;color:#e4d48c;background:#19170d}
 .ranked-persistence-status.healthy{border-color:#3d7952;color:#b9f2ca;background:#0d1e14;box-shadow:inset 0 0 0 1px #2a523733}
 .ranked-persistence-status.error{border-color:#8a4242;color:#ffb1b1;background:#251010}
+
+
+/* Stage 25V — idle startup + collapsible multiplayer chat */
+.log-chat-actions{display:flex;align-items:center;gap:4px;margin-left:auto}
+#chatCollapseButton{border-color:#536b89;color:#b9cce6;background:#111a27}
+#chatCollapseButton:hover{background:#253a55;color:#eef6ff}
+.combat-log-panel.chat-collapsed{padding-bottom:8px}
+.combat-log-panel.chat-collapsed .log-chat-heading{margin-bottom:0}
