@@ -293,3 +293,10 @@ aside{height:auto;overflow:visible;min-width:0;margin:0;grid-area:auto!important
 #chatCollapseButton:hover{background:#253a55;color:#eef6ff}
 .combat-log-panel.chat-collapsed{padding-bottom:8px}
 .combat-log-panel.chat-collapsed .log-chat-heading{margin-bottom:0}
+
+
+/* Combat Log mobile-friendly minimize control */
+#combatLogCollapseButton{border-color:#536b89;color:#b9cce6;background:#111a27}
+#combatLogCollapseButton:hover{background:#253a55;color:#eef6ff}
+.combat-log-panel.combat-log-collapsed{padding-bottom:8px}
+.combat-log-panel.combat-log-collapsed .log-chat-heading{margin-bottom:0}

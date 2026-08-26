@@ -11,7 +11,7 @@ new Phaser.Game({type:Phaser.AUTO,parent:'game',backgroundColor:'#080b10',scene:
 const q=id=>document.getElementById(id);
 const COORDINATOR_URL='wss://ros2-coordinator.onrender.com/ws';
 let socket=null,reconnectTimer=null;
-let activeLogTab='combat',chatUnread=0,chatCollapsed=false;
+let activeLogTab='combat',chatUnread=0,chatCollapsed=false,combatLogCollapsed=false;
 const PLAYER_NAME_STORAGE_KEY='ros2-player-name';
 function normalizePlayerName(value){return String(value??'').replace(/[<>&\u0000-\u001f\u007f]/g,'').replace(/\s+/g,' ').trim().slice(0,20)||'Player';}
 function currentPlayerName(){return normalizePlayerName(q('playerNameInput')?.value);}
@@ -37,6 +37,7 @@ q('cancelTargetButton').onclick=()=>scene.cancelTargeting();
 q('timeControlButton').onclick=()=>scene.handleTimeControl();
 q('replaySpeedButton').onclick=()=>handleReplaySpeedButton();
 q('clearLogButton').onclick=()=>{q('combatLog').innerHTML='';};
+q('combatLogCollapseButton').onclick=()=>setCombatLogCollapsed(!combatLogCollapsed);
 q('chatCollapseButton').onclick=()=>setChatCollapsed(!chatCollapsed);
 q('combatLogTabButton').onclick=()=>setLogChatTab('combat');
 q('chatTabButton').onclick=()=>setLogChatTab('chat');
@@ -50,15 +51,24 @@ q('chatForm').addEventListener('submit',event=>{
 function setLogChatTab(tab){
   const wantsChat=tab==='chat'&&!q('chatTabButton').disabled;
   activeLogTab=wantsChat?'chat':'combat';
-  q('combatLog').classList.toggle('hidden',activeLogTab!=='combat');
+  q('combatLog').classList.toggle('hidden',activeLogTab!=='combat'||combatLogCollapsed);
   q('multiplayerChat').classList.toggle('hidden',activeLogTab!=='chat'||chatCollapsed);
   q('combatLogTabButton').classList.toggle('active',activeLogTab==='combat');
   q('chatTabButton').classList.toggle('active',activeLogTab==='chat');
   q('combatLogTabButton').setAttribute('aria-selected',String(activeLogTab==='combat'));
   q('chatTabButton').setAttribute('aria-selected',String(activeLogTab==='chat'));
   q('clearLogButton').classList.toggle('hidden',activeLogTab==='chat');
+  q('combatLogCollapseButton').classList.toggle('hidden',activeLogTab!=='combat');
+  q('logPanel')?.classList.toggle('combat-log-collapsed',activeLogTab==='combat'&&combatLogCollapsed);
   q('chatCollapseButton').classList.toggle('hidden',activeLogTab!=='chat');
   if(activeLogTab==='chat'&&!chatCollapsed){chatUnread=0;updateChatUnread();q('chatMessages').scrollTop=q('chatMessages').scrollHeight;q('chatInput')?.focus();}
+}
+function setCombatLogCollapsed(collapsed){
+  combatLogCollapsed=Boolean(collapsed);
+  const button=q('combatLogCollapseButton');
+  button.textContent=combatLogCollapsed?'EXPAND':'MINIMIZE';button.setAttribute('aria-expanded',String(!combatLogCollapsed));
+  q('logPanel')?.classList.toggle('combat-log-collapsed',activeLogTab==='combat'&&combatLogCollapsed);
+  q('combatLog').classList.toggle('hidden',activeLogTab!=='combat'||combatLogCollapsed);
 }
 function setChatCollapsed(collapsed){
   chatCollapsed=Boolean(collapsed);

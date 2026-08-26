@@ -1,9 +1,9 @@
 {
   "name": "ros2-simulation-core",
-  "version": "0.25.24-stage25x-warrior-vfx-monk-proc",
+  "version": "0.25.25-stage25y-shieldwall-electro-proc-polish",
   "private": true,
   "type": "module",
-  "description": "Realm of Shinobi 2.0 deterministic combat \u2014 Stage 25X Warrior ability VFX + Monk basic proc VFX",
+  "description": "Realm of Shinobi 2.0 deterministic combat \u2014 Stage 25Y Shieldwall redirect VFX + Electromancer proc feedback polish",
   "scripts": {
     "test": "node --test",
     "demo": "node demo/stage23-demo.js",

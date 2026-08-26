@@ -1759,9 +1759,14 @@ export class RosBattleScene extends Phaser.Scene {
     const warrior=this.unitViews.get(command.actorId);
     const intended=this.unitViews.get(command.payload?.intendedTargetId??command.targetId);
     if(!warrior||warrior.unit?.archetypeId!=='Warrior'||!intended?.container)return Promise.resolve();
-    this.pulseImageFx('vfx-warrior-shieldwall-redirect',intended.container.x,intended.container.y-22,{
-      scale:.34,duration:400,alpha:.96,scaleTo:.44,depth:12
+    // Shieldwall B1 should read as a transfer: mark both the ally who was protected and
+    // the Warrior who actually absorbs the redirected strike. Stage25Y reduces both
+    // instances by 20% from the original .34 -> .44 presentation scale.
+    const redirectFx=(unitView)=>this.pulseImageFx('vfx-warrior-shieldwall-redirect',unitView.container.x,unitView.container.y-22,{
+      scale:.272,duration:400,alpha:.96,scaleTo:.352,depth:12
     });
+    redirectFx(intended);
+    redirectFx(warrior);
     return new Promise(resolve=>this.time.delayedCall(this.replayDuration(90),resolve));
   }
 
@@ -1986,7 +1991,18 @@ export class RosBattleScene extends Phaser.Scene {
     const colors={MAGICAL:'#9edbff',PHYSICAL:'#f4f6fa',BLEED:'#ff5f68',POISON:'#2f8f46'};
     const v=this.unitViews.get(command.targetId);
     if(v&&ability==='PLAGUE_DETONATION'&&type==='POISON'){v.unit.statuses=(v.unit.statuses??[]).filter(s=>String(s.key??'').toLowerCase()!=='poison');this.refreshStatusDots(v);}
-    this.spawnImpactVfx(command);const feedback=[this.floatText(command.targetId,`-${command.payload.amount??'DMG'}`,colors[type]??'#f4f6fa')];
+    this.spawnImpactVfx(command);
+    const attacker=this.unitViews.get(command.actorId);
+    const electroProc=Boolean(command.payload?.proc===true&&attacker?.unit?.archetypeId==='Electromancer'&&ability==='ELECTRO_ATTACK');
+    // Electromancer's Lightning Bolt passive is a separate damage event immediately after
+    // the physical hit. Give that proc its own explicit overhead-number presentation so it
+    // cannot visually disappear into the ordinary strike feedback.
+    const feedback=[this.floatText(
+      command.targetId,
+      `-${command.payload.amount??'DMG'}`,
+      electroProc?'#66ddff':(colors[type]??'#f4f6fa'),
+      electroProc?{yOffset:8,duration:380}:{}
+    )];
     if(ability==='CHAIN_LIGHTNING' && command.actorId && command.targetId){
       if(!this.lastChainLightningTargetByActor)this.lastChainLightningTargetByActor=new Map();
       const prevTargetId=this.lastChainLightningTargetByActor.get(command.actorId);
@@ -2000,7 +2016,6 @@ export class RosBattleScene extends Phaser.Scene {
       }
       this.lastChainLightningTargetByActor.set(command.actorId, command.targetId);
     }
-    const attacker=this.unitViews.get(command.actorId);
     if(ability==='SHIELD_BASH'&&attacker?.unit?.archetypeId==='Paladin'){
       this.spawnPaladinSignatureFx(attacker,'SHIELD_BASH',command.targetId,v?.unit?.position??null);
     }
