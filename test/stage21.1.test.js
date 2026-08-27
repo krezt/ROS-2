@@ -105,9 +105,9 @@ test('Cover Fire with only two living enemies hits both before synchronized RNG 
   assert.ok(['G0','G1'].includes(targets[2]));
 });
 
-test('Shield Bash keeps 300% burst, 35% two-round Stun threat, and 20% physical brace as a pursuit style',()=>{
+test('Shield Bash keeps 350% burst, 35% two-round Stun threat, and 20% physical brace as a pursuit style',()=>{
   const bash=getAbility('Paladin','SHIELD_BASH');
-  assert.equal(bash.basicStyle?.damageMultiplier,3);
+  assert.equal(bash.basicStyle?.damageMultiplier,3.5);
   assert.equal(bash.basicStyle?.attacksSet,3);
   assert.equal(bash.basicStyle?.ordinaryAttackLimit,1);
   assert.equal(bash.basicStyle?.startupDelayCycles,1);

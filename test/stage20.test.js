@@ -99,7 +99,7 @@ test('Archer Cover Fire uses only three shots and successful hits Blind for the 
   assert.equal(blind.duration,1); assert.equal(blind.data.whiffChance,.5);
 });
 
-test('Archer Snipe uses three long-range 325% shots with distance scaling and ordinary kiting',()=>{
+test('Archer Snipe uses three long-range shots with distance scaling and ordinary kiting',()=>{
   const state=pair('Archer','Warrior',{row:3,col:5},{row:3,col:3}); noDodge(state.units.G0);
   state.units.H0.weapon.attackBaseMin=40;state.units.H0.weapon.attackBaseMax=40;state.units.H0.stats.CRIT=0;state.units.H0.weapon.critBonus=0;
   const sim=run(state,[decl('Archer','SNIPE'),hold('G0')],5,false);
@@ -228,8 +228,8 @@ test('Rogue Expose strips one defensive buff and Marks for current plus next rou
   assert.equal(findStatus(sim.state.units.G0,'marked')?.duration,2);
 });
 
-test('Paladin Shield Bash is a one-attempt pursuit style with 300% damage, Stun threat, and physical brace',()=>{
-  const a=getAbility('Paladin','SHIELD_BASH');assert.equal(a.actionKind,ACTION_KIND.BASIC_ATTACK);assert.equal(a.basicStyle.attacksSet,3);assert.equal(a.basicStyle.ordinaryAttackLimit,1);assert.equal(a.basicStyle.damageMultiplier,3);
+test('Paladin Shield Bash is a one-attempt pursuit style with 350% damage, Stun threat, and physical brace',()=>{
+  const a=getAbility('Paladin','SHIELD_BASH');assert.equal(a.actionKind,ACTION_KIND.BASIC_ATTACK);assert.equal(a.basicStyle.attacksSet,3);assert.equal(a.basicStyle.ordinaryAttackLimit,1);assert.equal(a.basicStyle.damageMultiplier,3.5);
   assert.equal(a.basicStyle.startupDelayCycles,1);assert.equal(a.basicStyle.onHit.chance,.35);assert.equal(a.basicStyle.onHit.duration,2);assert.equal(a.basicStyle.selfOnFirstAttack.data.pct,.20);
   const state=pair('Paladin','Warrior',{row:3,col:1},{row:3,col:7});noDodge(state.units.G0);state.units.H0.weapon.attackBaseMin=100;state.units.H0.weapon.attackBaseMax=100;state.units.H0.stats.CRIT=0;
   const sim=run(state,[decl('Paladin','SHIELD_BASH'),hold('G0')],16,false);

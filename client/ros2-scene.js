@@ -824,9 +824,11 @@ export class RosBattleScene extends Phaser.Scene {
       (raw==='berserk' && ability==='BERSERK') ||
       (raw==='blind' && ability==='MIND_SHATTER')
     );
+    const paladinBasicProcFx = !ending && command.payload?.eventType==='STATUS_APPLY' && targetView &&
+      source?.unit?.archetypeId==='Paladin' && raw==='def_up' && command.payload?.data?.proc===true;
     const monkBasicProcFx = !ending && command.payload?.eventType==='STATUS_APPLY' && targetView &&
       source?.unit?.archetypeId==='Monk' && raw==='atk_up' && ability==='MONK_ATTACK' && command.payload?.data?.proc===true;
-    if(!shouldFloatStatusFeedback(command) && !mysticSpecialFx && !monkBasicProcFx)return;
+    if(!shouldFloatStatusFeedback(command) && !mysticSpecialFx && !paladinBasicProcFx && !monkBasicProcFx)return;
     // Bleed refreshes may arrive repeatedly in one attack sequence; keep those quiet. Poison contributions stay visible so every poison ability communicates the amount added.
     if(command.payload?.eventType==='STATUS_APPLY'&&wasPresent&&rawKey==='bleed')return;
     const control=new Set(['stun','silence','taunt','berserk','root','suppression','spellbreak']);
@@ -844,7 +846,7 @@ export class RosBattleScene extends Phaser.Scene {
     if(!ending&&raw==='bleed'&&source?.unit?.archetypeId==='Shinobi'&&targetView){
       this.pulseImageFx('vfx-shinobi-bleed',targetView.container.x,targetView.container.y-22,{scale:.34,duration:440,alpha:.96,scaleTo:.44});
     }
-    if(!ending&&raw==='def_up'&&source?.unit?.archetypeId==='Paladin'&&ability==='PALADIN_ATTACK'&&targetView){
+    if(paladinBasicProcFx){
       this.pulseImageFx('vfx-paladin-proc',targetView.container.x,targetView.container.y-22,{scale:.30,duration:440,alpha:.96,scaleTo:.38,depth:12});
     }
     if(mysticSpecialFx){
@@ -1994,6 +1996,10 @@ export class RosBattleScene extends Phaser.Scene {
     this.spawnImpactVfx(command);
     const attacker=this.unitViews.get(command.actorId);
     const electroProc=Boolean(command.payload?.proc===true&&attacker?.unit?.archetypeId==='Electromancer'&&ability==='ELECTRO_ATTACK');
+    const necroLifeDripProc=Boolean(command.payload?.proc===true&&attacker?.unit?.archetypeId==='Necromancer'&&String(command.payload?.procLabel??'').toUpperCase()==='LIFE DRIP');
+    if(v&&necroLifeDripProc){
+      this.pulseImageFx('vfx-necro-target',v.container.x,v.container.y-22,{scale:.12,duration:240,alpha:.92,grow:1.12,depth:12});
+    }
     // Electromancer's Lightning Bolt passive is a separate damage event immediately after
     // the physical hit. Give that proc its own explicit overhead-number presentation so it
     // cannot visually disappear into the ordinary strike feedback.

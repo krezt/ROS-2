@@ -41,9 +41,9 @@ test('end-of-round Poison damage across multiple champions replays simultaneousl
   assert.ok(group);assert.equal(group.payload.events.length,2);
 });
 
-test('current Snipe tuning is Range 7 with 5% distance bonus',()=>{
+test('current Snipe tuning is Range 8 with 5% distance bonus',()=>{
   const snipe=getAbility('Archer','SNIPE');
-  assert.equal(snipe.basicStyle.attackRangeOverride,7);
+  assert.equal(snipe.basicStyle.attackRangeOverride,8);
   assert.equal(snipe.basicStyle.distanceDamageBonusPerSquare,.05);
 });
 

@@ -29,7 +29,7 @@ test('Stage 25Z requested balance tuning is authoritative',()=>{
   rogueUnit.statuses.push({key:'shadowstep_crit',duration:2,sourceId:'H0',data:{multiplier:2.5}});
   assert.equal(effectiveCritMultiplier(rogueUnit),2.5);
 
-  assert.equal(getAbility('Archer','SNIPE').basicStyle.attackRangeOverride,7);
+  assert.equal(getAbility('Archer','SNIPE').basicStyle.attackRangeOverride,8);
   const barbarian=getArchetype('Barbarian');
   assert.deepEqual([barbarian.weapon.attackBaseMin,barbarian.weapon.attackBaseMax],[77,108]);
 });

@@ -14,13 +14,13 @@ function attackDecl(archetypeId,actorId='H0',targetId='G0'){
   return createRosterAbilityDeclaration({declarationId:`D:${actorId}`,roundNumber:1,actorId,archetypeId,abilityId:attack.id,target:{type:TARGET_TYPE.UNIT,unitId:targetId}});
 }
 
-test('Stage 23.20 Archer range and Snipe tuning match the playtest ruling',()=>{
+test('Stage 23.20 Archer range and Snipe tuning match the latest balance ruling',()=>{
   const archer=getArchetype('Archer');
   const snipe=getAbility('Archer','SNIPE');
   assert.equal(archer.weapon.weaponRange,6);
   assert.equal(archer.weapon.preferredRange,6);
-  assert.equal(snipe.basicStyle.attackRangeOverride,7);
-  assert.equal(snipe.basicStyle.damageMultiplier,2.025);
+  assert.equal(snipe.basicStyle.attackRangeOverride,8);
+  assert.equal(snipe.basicStyle.damageMultiplier,2.2275);
   assert.equal(snipe.basicStyle.distanceDamageBonusPerSquare,.05);
 });
 

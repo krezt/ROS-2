@@ -42,12 +42,12 @@ test('Stun blocks proactive control but allows an in-range reflex counter with z
   void scheduler;
 });
 
-test('Snipe has Range 7, 202.5% base damage, and +5% damage per actual square of separation',()=>{
-  const s=getAbility('Archer','SNIPE');assert.equal(s.basicStyle.attackRangeOverride,7);assert.equal(s.basicStyle.damageMultiplier,2.025);assert.equal(s.basicStyle.distanceDamageBonusPerSquare,.05);
+test('Snipe has Range 8, 222.75% base damage, and +5% damage per actual square of separation',()=>{
+  const s=getAbility('Archer','SNIPE');assert.equal(s.basicStyle.attackRangeOverride,8);assert.equal(s.basicStyle.damageMultiplier,2.2275);assert.equal(s.basicStyle.distanceDamageBonusPerSquare,.05);
   const state=pair('Archer','Warrior',{row:5,col:2},{row:5,col:9});state.units.H0.weapon.attackBaseMin=100;state.units.H0.weapon.attackBaseMax=100;state.units.H0.stats.CRIT=0;state.units.H0.weapon.critBonus=0;state.units.G0.stats.DEF=0;state.units.G0.stats.QKN=-1000;state.units.G0.stats.hp=9999;state.units.G0.stats.maxHP=9999;
   const sim=createRoundSimulation({state,declarations:[decl('Archer','SNIPE'),hold('G0')],seed:4});createRosterCombatScheduler(sim,{countersEnabled:false});sim.state.units.H0.resources.attacksRemaining=1;
-  const hit=resolveBasicAttack(sim,'H0','G0',{cycle:0,ignoreAttackInterval:true,rangeOverride:7});
-  assert.ok(hit.dealt>=273&&hit.dealt<=275);
+  const hit=resolveBasicAttack(sim,'H0','G0',{cycle:0,ignoreAttackInterval:true,rangeOverride:8});
+  assert.ok(hit.dealt>=299&&hit.dealt<=301);
 });
 
 test('Warhorn is a 2-cycle team buff granting +1 SW and +2 Movement for 4 rounds',()=>{
