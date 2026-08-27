@@ -89,7 +89,7 @@ test('regular Attack is first in every archetype ability list',()=>{
 });
 
 test('current movement tuning includes the Warrior, Barbarian and Paladin buffs',()=>{
-  const expected={Warrior:14,Barbarian:15,Rogue:16,Cleric:11,Mage:13,Paladin:14,Archer:12,Monk:15,Necromancer:11,Mystic:13,Shinobi:16,Electromancer:12};
+  const expected={Warrior:14,Barbarian:15,Rogue:17,Cleric:11,Mage:13,Paladin:14,Archer:12,Monk:15,Necromancer:11,Mystic:13,Shinobi:16,Electromancer:12};
   for(const [id,movementMax] of Object.entries(expected))assert.equal(getArchetype(id).combat.movementMax,movementMax,id);
 });
 

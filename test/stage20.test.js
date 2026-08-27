@@ -65,7 +65,7 @@ test('Warrior Power Strikes is a half-movement style using the normal seven-swin
   assert.equal(before-sim.state.units.G0.stats.hp,expected);
 });
 
-test('Barbarian Rend uses exactly four swings and stacks 20% defense shred per damaging hit',()=>{
+test('Barbarian Rend uses exactly four swings and stacks 25% defense shred per damaging hit',()=>{
   const state=pair('Barbarian','Warrior'); noDodge(state.units.G0);
   const sim=createRoundSimulation({state,declarations:[decl('Barbarian','REND'),hold('G0')],seed:2});
   createRosterCombatScheduler(sim,{countersEnabled:false});
@@ -75,7 +75,7 @@ test('Barbarian Rend uses exactly four swings and stacks 20% defense shred per d
   const rend=findStatus(sim.state.units.G0,'rend_def_down');
   assert.equal(rend.duration,3);
   assert.equal(rend.data.stacks,2);
-  assert.equal(rend.data.pctPerStack,.20);
+  assert.equal(rend.data.pctPerStack,.25);
 });
 
 test('Barbarian Smashing Blows sacrifices two swings and supports per-hit 2-round Stun procs',()=>{
@@ -212,13 +212,13 @@ test('FREE_COUNTERS Counterstance can counter with zero attacks without consumin
 });
 
 // --- Other redesigns ---------------------------------------------------------------
-test('Rogue Shadowstep gives three-round break-on-physical stealth and 200% crit multiplier',()=>{
+test('Rogue Shadowstep gives three-round break-on-physical stealth and 250% crit multiplier',()=>{
   const sim=run(pair('Rogue','Warrior'),[decl('Rogue','SHADOWSTEP','H0',{type:TARGET_TYPE.SELF}),hold('G0')],14,false);
   const invis=findStatus(sim.state.units.H0,'invisible');
   assert.equal(invis?.duration,3);
   assert.equal(invis?.data.breakOnPhysicalAttack,true);
   assert.equal(findStatus(sim.state.units.H0,'shadowstep_crit')?.duration,3);
-  assert.equal(findStatus(sim.state.units.H0,'shadowstep_crit')?.data.multiplier,2);
+  assert.equal(findStatus(sim.state.units.H0,'shadowstep_crit')?.data.multiplier,2.5);
 });
 
 test('Rogue Expose strips one defensive buff and Marks for current plus next round',()=>{

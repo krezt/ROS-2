@@ -267,12 +267,12 @@ export class RosBattleScene extends Phaser.Scene {
     this.mode='SINGLE_PLAYER';this.timeoutsRemaining=3;this.setWaitingForOpponent(false);this.setReplaySpeed(this.replaySpeed,{locked:false,notify:false});
     const {teamA,teamB}=this.singlePlayerTeams;
     const state=createTeamBattleState({teamA,teamB,matchId:`STAGE25A-LOCAL-${teamA.length}V${teamB.length}`});
-    this.match=new LocalSinglePlayerMatch({state,aiDifficulty:'NORMAL'});
+    this.match=new LocalSinglePlayerMatch({state,aiDifficulty:'TACTICAL'});
     this.resetMatchStats(this.match.state);
     this.loadState(this.match.state);
     this.newSelectionSession();
     const label=`${teamA.length}v${teamB.length}`;
-    this.log(`1P ${source} ${label} ready. Choose a champion from the sidebar, then assign an action. Visual replay defaults to 0.33× speed.`,'system');
+    this.log(`1P ${source} ${label} ready with Tactical AI. Choose a champion from the sidebar, then assign an action. Visual replay defaults to 0.33× speed.`,'system');
     this.setStatus(`1P ${label}. Choose ${this.session.actorIds.length} action${this.session.actorIds.length===1?'':'s'}.`);
   }
 

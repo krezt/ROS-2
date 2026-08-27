@@ -32,7 +32,7 @@ test('system-wide HP, ARM/RES and requested movement baselines match the polish 
   assert.equal(getArchetype('Warrior').combat.movementMax,14);
   assert.equal(getArchetype('Paladin').combat.movementMax,14);
   assert.equal(getArchetype('Mage').combat.movementMax,13);
-  assert.equal(getArchetype('Rogue').combat.movementMax,16);
+  assert.equal(getArchetype('Rogue').combat.movementMax,17);
 });
 
 test('requested ability tuning is authoritative in roster data',()=>{

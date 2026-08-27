@@ -1,7 +1,7 @@
 import { ACTION_RUNTIME_STATE, EVENT_TYPE, LIFE_STATE, WEAPON_BEHAVIOR } from './constants.js';
 import { invariant } from './errors.js';
 import { manhattanDistance } from './grid.js';
-import { advanceCounterEscapeOneStep, advancePursuitOneStep, advanceThreatRetreatOneStep, COUNTER_ESCAPE_RESULT, KITE_RESULT, PURSUIT_RESULT } from './movement.js';
+import { advanceCounterEscapeOneStep, advancePursuitOneStep, advanceThreatRetreatOneStep, shortestPursuitStepsToEngagement, COUNTER_ESCAPE_RESULT, KITE_RESULT, PURSUIT_RESULT } from './movement.js';
 import { isWithinWeaponRange, resolveBasicAttack } from './combat.js';
 import { hasControlStatus, CONTROL_TYPE } from './controls.js';
 import { interruptSpell } from './spells.js';
@@ -31,11 +31,32 @@ export function counterEligibility(simulation, defenderId, aggressorId) {
   if (rules.attackCost > 0 && defender.resources.attacksRemaining < rules.attackCost) return { eligible: false, reason: 'NO_ATTACKS', rules };
   const distance = manhattanDistance(defender.position, aggressor.position);
   if (!isWithinWeaponRange(defender, aggressor)) {
-    const maxReachAfterPursuit = defender.weapon.weaponRange + Math.min(rules.pursuitMoveMax, defender.resources.movementRemaining);
-    if (!rules.allowPursuit || distance > maxReachAfterPursuit) {
+    const pursuitBlocked = isRooted(defender) || hasControlStatus(defender, CONTROL_TYPE.STUN);
+    const pursuitAllowance = pursuitBlocked ? 0 : Math.min(rules.pursuitMoveMax, defender.resources.movementRemaining);
+    if (!rules.allowPursuit || pursuitAllowance <= 0) {
       return { eligible: false, reason: 'AGGRESSOR_OUT_OF_RANGE', distance, rules };
     }
-    return { eligible: true, reason: 'COUNTERSTANCE_PURSUIT_ELIGIBLE', distance, rules };
+    const shortestStepsToEngagement = shortestPursuitStepsToEngagement(
+      simulation.state, defenderId, aggressorId, { range: defender.weapon.weaponRange }
+    );
+    if (!Number.isInteger(shortestStepsToEngagement) || shortestStepsToEngagement > pursuitAllowance) {
+      return {
+        eligible: false,
+        reason: 'AGGRESSOR_UNREACHABLE_WITH_PURSUIT',
+        distance,
+        shortestStepsToEngagement,
+        pursuitAllowance,
+        rules
+      };
+    }
+    return {
+      eligible: true,
+      reason: 'COUNTERSTANCE_PURSUIT_ELIGIBLE',
+      distance,
+      shortestStepsToEngagement,
+      pursuitAllowance,
+      rules
+    };
   }
   return { eligible: true, reason: 'ELIGIBLE', distance, rules };
 }
@@ -93,7 +114,11 @@ export function resolveCounterReaction(reaction, { simulation, cycle }) {
   const stunned = hasControlStatus(defender, CONTROL_TYPE.STUN);
   const pursuitSteps = (isRooted(defender) || stunned) ? 0 : Math.min(counterRules.allowPursuit ? counterRules.pursuitMoveMax : 0, defender.resources.movementRemaining);
   for (let i = 0; i < pursuitSteps && !isWithinWeaponRange(defender, aggressor); i += 1) {
-    const move = advancePursuitOneStep(simulation.state, defender.unitId, aggressor.unitId, { rng: simulation.rng, range: defender.weapon.weaponRange });
+    const move = advancePursuitOneStep(simulation.state, defender.unitId, aggressor.unitId, {
+      rng: simulation.rng,
+      range: defender.weapon.weaponRange,
+      ignoreAttacksRemaining: counterRules.attackCost === 0
+    });
     if (move.result !== PURSUIT_RESULT.MOVE && move.result !== PURSUIT_RESULT.MOVE_AND_ENTER_RANGE) break;
     const moveEvent = emit(simulation, EVENT_TYPE.COUNTER_MOVE, {
       initiativeCycle: cycle,
@@ -150,10 +175,23 @@ export function resolveCounterReaction(reaction, { simulation, cycle }) {
     movementEvents.push(moveEvent.eventId);
   }
 
-  const afterMove = counterEligibility(simulation, defender.unitId, aggressor.unitId);
-  if (!afterMove.eligible) {
-    simulation.trace.record('COUNTER_CANCELLED_AFTER_MOVE', { cycle, defenderId: defender.unitId, aggressorId: aggressor.unitId, reason: afterMove.reason });
-    return { resolved: false, reason: afterMove.reason, counterEventId: counterEvent.eventId, movementEvents };
+  if (!isWithinWeaponRange(defender, aggressor)) {
+    const distanceAfter = manhattanDistance(defender.position, aggressor.position);
+    simulation.trace.record('COUNTER_CANCELLED_AFTER_MOVE', {
+      cycle,
+      defenderId: defender.unitId,
+      aggressorId: aggressor.unitId,
+      reason: 'AGGRESSOR_OUT_OF_RANGE_AFTER_PURSUIT',
+      distanceAfter,
+      weaponRange: defender.weapon.weaponRange,
+      movementSteps: movementEvents.length
+    });
+    return {
+      resolved: false,
+      reason: 'AGGRESSOR_OUT_OF_RANGE_AFTER_PURSUIT',
+      counterEventId: counterEvent.eventId,
+      movementEvents
+    };
   }
 
   const nextOrdinaryBefore = defender.resources.nextOrdinaryAttackCycle;

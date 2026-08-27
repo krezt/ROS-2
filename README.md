@@ -1,4 +1,15 @@
-# Realm of Shinobi 2.0 — Stage 25X
+# Realm of Shinobi 2.0 — Stage 25AB
+
+Stage 25AB preserves the Stage 25Z tactical 1P AI, mobile Combat Log collapse, and Stage 25AA Counterstance/pathfinding safeguards while applying the current proc and ability tuning. Multiplayer rules/network flow are unchanged.
+
+- 1P uses **TACTICAL** AI with threat recognition, focus fire, combo sequencing/interruption, sustain denial, reactive defense, meaningful Dispel/Cleanse decisions, and tightly gated Mystic Premonition.
+- Counterstance uses path-aware pursuit eligibility and a strict post-pursuit range guard so blocked counters cancel cleanly instead of hanging a round.
+- Archer Snipe remains **Range 7** and **202.5% base damage** per shot.
+- Marked remains **+65% incoming damage**.
+- Rogue remains at **17 Movement** with a **2.5× Shadowstep crit multiplier**; Poison Imbue now adds Poison equal to **75% of successful-hit damage**.
+- Barbarian weapon damage remains **77–108**; Smashing Blows now has **15% Stun per successful hit**, and Rend stacks a **25% multiplicative DEF reduction per successful hit** for 3 rounds.
+- Basic passive proc chances are now explicit per successful hit: Cleric **15%**, Necromancer **15%**, Mystic **15%**, Electromancer **30%**, Monk **20%**, Paladin **25%**, Mage **6%**; the existing **3 procs/round cap** remains.
+- Paladin Shield Bash remains one **300% proactive bash** with two attack resources reserved for normal counters; its tooltip now reports this correctly instead of displaying three proactive swings.
 
 Stage 25V preserves the Stage 25U durable Ranked/Supabase persistence system and Stage 25T portrait draft polish, while adding startup/lifecycle and Monk quality-of-life changes.
 

@@ -29,11 +29,10 @@ test('Stage 23.16 passive procs allow up to three successes per round',()=>{
   }
 });
 
-test('Stage 23.16 retains independent per-hit chance derived from roundChance/referenceSwings',()=>{
-  const monk=proc('Monk');
-  const p=1-Math.pow(1-monk.roundChance,1/monk.referenceSwings);
-  assert.ok(p>0 && p<1);
-  assert.ok(p>.23 && p<.25,`unexpected Monk per-hit chance ${p}`);
+test('current passive procs use explicit independent per-hit chances',()=>{
+  assert.equal(proc('Monk').chance,.20);
+  assert.equal(proc('Mystic').chance,.15);
+  assert.equal(proc('Electromancer').chance,.30);
 });
 
 test('Stage 23.16 can produce multiple passive procs in a single attack round',()=>{

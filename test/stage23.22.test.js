@@ -14,9 +14,9 @@ test('Volley receives the requested additional 20% damage increase',()=>{
   assert.deepEqual([e.min,e.max],[132,240]);
 });
 
-test('Rend strips twenty percent ARM per successful hit and retains three-round stacking duration',()=>{
+test('Rend strips twenty-five percent DEF per successful hit and retains three-round stacking duration',()=>{
   const style=getAbility('Barbarian','REND').basicStyle;
-  assert.equal(style.onHit.defenseShredPct,.20);
+  assert.equal(style.onHit.defenseShredPct,.25);
   assert.equal(style.onHit.duration,3);
 });
 

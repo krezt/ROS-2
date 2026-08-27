@@ -68,13 +68,14 @@ test('legacy basic passive proc identities are executable under the multi-swing 
   assert.ok(paladin,'Paladin DEF-up proc should occur');
 });
 
-test('basic passive procs use round-level chances with a three-proc volatility cap',()=>{
-  for(const id of ['Cleric','Mage','Monk','Mystic','Necromancer','Paladin','Electromancer']){
+test('basic passive procs use explicit per-successful-hit chances with a three-proc volatility cap',()=>{
+  const expected={Cleric:.15,Mage:.06,Monk:.20,Mystic:.15,Necromancer:.15,Paladin:.25,Electromancer:.30};
+  for(const [id,chance] of Object.entries(expected)){
     const proc=getArchetype(id).abilities.find(a=>a.id.endsWith('_ATTACK')).basicProc;
-    assert.ok(proc.roundChance>0 && proc.roundChance<1);
+    assert.equal(proc.chance,chance,id);
     assert.equal(proc.maxPerRound,3);
-    assert.ok(proc.referenceSwings>=5);
-    assert.equal(proc.chance,undefined);
+    assert.equal(proc.roundChance,undefined);
+    assert.equal(proc.referenceSwings,undefined);
   }
 });
 
@@ -82,12 +83,12 @@ test('Mage owns the stun proc and Electromancer owns the stronger Lightning Bolt
   const mage=getArchetype('Mage').abilities.find(a=>a.id==='MAGE_ATTACK').basicProc;
   assert.equal(mage.type,'STATUS');
   assert.equal(mage.key,'stun');
-  assert.equal(mage.roundChance,.30);
+  assert.equal(mage.chance,.06);
   assert.equal(mage.maxPerRound,3);
   const electro=getArchetype('Electromancer').abilities.find(a=>a.id==='ELECTRO_ATTACK').basicProc;
   assert.equal(electro.type,'DAMAGE');
   assert.equal(electro.label,'Lightning Bolt');
-  assert.equal(electro.roundChance,.80);
+  assert.equal(electro.chance,.30);
   assert.deepEqual([electro.min,electro.max],[50,175]);
   assert.equal(electro.maxPerRound,3);
 });

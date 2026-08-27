@@ -14,7 +14,7 @@ export function effectiveStat(unit,key){
 }
 export function incomingDamageMultiplier(unit,damageType){
  let m=1;
- if(findStatus(unit,'marked'))m*=1.85;
+ if(findStatus(unit,'marked'))m*=1.65;
  const divine=findStatus(unit,'divine_shield');if(divine)m*=Math.max(0,1-(divine.data?.pct??.60));
  const guard=findStatus(unit,'guard');if(guard)m*=Math.max(0,1-(guard.data?.pct??.2));
  const magic=findStatus(unit,'magic_shield');if(magic&&damageType==='MAGICAL')m*=Math.max(0,1-(magic.data?.pct??.5));

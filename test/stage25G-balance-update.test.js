@@ -19,7 +19,7 @@ function decl(archetypeId,abilityId,actorId,target,roundNumber=1){
 
 test('Stage 25G roster balance values match the requested update',()=>{
   assert.equal(getArchetype('Mage').combat.movementMax,13);
-  assert.equal(getArchetype('Rogue').combat.movementMax,16);
+  assert.equal(getArchetype('Rogue').combat.movementMax,17);
   assert.equal(getArchetype('Paladin').combat.movementMax,14);
 
   const archer=getArchetype('Archer');
@@ -45,7 +45,7 @@ test('Stage 25G roster balance values match the requested update',()=>{
   const judgment=getAbility('Paladin','JUDGMENT').effects[0];
   assert.deepEqual([judgment.min,judgment.max],[200,300]);
   assert.equal(judgment.afflictedMultiplier,2.0);
-  assert.equal(getAbility('Paladin','PALADIN_ATTACK').basicProc.roundChance,.90);
+  assert.equal(getAbility('Paladin','PALADIN_ATTACK').basicProc.chance,.25);
 
   const storm=getAbility('Electromancer','ELECTRICAL_STORM').effects[0];
   assert.deepEqual([storm.damage.min,storm.damage.max],[25,125]);

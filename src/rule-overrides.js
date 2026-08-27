@@ -440,9 +440,9 @@ export function applyBasicHitOverrides(simulation, {
   const style = plainBasic ? null : currentBasicStyle(simulation, actorId);
   const ability = plainBasic ? baseAttackAbilityForActor(simulation, actorId) : declaredRosterAbility(simulation, actorId);
 
-  // Basic passive procs are data-driven. Legacy one-attack 75% procs use
-  // roundChance/referenceSwings so ROS2's multi-swing economy does not turn them
-  // into near-guaranteed multi-proc explosions.
+  // Basic passive procs are data-driven. Current roster passives use explicit
+  // per-successful-hit chances; roundChance/referenceSwings remains supported
+  // only for backward-compatible data fixtures.
   const basicProc = ability?.basicProc;
   if (basicProc && rollProc(simulation, actorId, targetId, basicProc)) {
     if (basicProc.type === 'STATUS') {

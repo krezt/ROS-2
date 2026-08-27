@@ -1,9 +1,9 @@
 {
   "name": "ros2-simulation-core",
-  "version": "0.25.25-stage25y-shieldwall-electro-proc-polish",
+  "version": "0.25.28-stage25ab-proc-rend-tooltip-polish",
   "private": true,
   "type": "module",
-  "description": "Realm of Shinobi 2.0 deterministic combat \u2014 Stage 25Y Shieldwall redirect VFX + Electromancer proc feedback polish",
+  "description": "Realm of Shinobi 2.0 deterministic combat \u2014 Stage 25AB proc tuning, Rend/Poison balance, Shield Bash tooltip correction",
   "scripts": {
     "test": "node --test",
     "demo": "node demo/stage23-demo.js",

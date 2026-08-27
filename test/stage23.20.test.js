@@ -19,8 +19,8 @@ test('Stage 23.20 Archer range and Snipe tuning match the playtest ruling',()=>{
   const snipe=getAbility('Archer','SNIPE');
   assert.equal(archer.weapon.weaponRange,6);
   assert.equal(archer.weapon.preferredRange,6);
-  assert.equal(snipe.basicStyle.attackRangeOverride,9);
-  assert.equal(snipe.basicStyle.damageMultiplier,2.25);
+  assert.equal(snipe.basicStyle.attackRangeOverride,7);
+  assert.equal(snipe.basicStyle.damageMultiplier,2.025);
   assert.equal(snipe.basicStyle.distanceDamageBonusPerSquare,.05);
 });
 
@@ -32,7 +32,7 @@ test('current survivability polish raises every champion HP baseline by a furthe
 test('Monk has seven normal swings and Palm Hits are two 350% pursuit strikes',()=>{
   const monk=getArchetype('Monk'), palm=getAbility('Monk','PALM_HIT');
   assert.equal(monk.combat.attacksMax,7);
-  assert.equal(getAbility('Monk','MONK_ATTACK').basicProc.referenceSwings,7);
+  assert.equal(getAbility('Monk','MONK_ATTACK').basicProc.chance,.20);
   assert.equal(palm.basicStyle.attacksSet,2);
   assert.equal(palm.basicStyle.damageMultiplier,3.5);
   assert.equal(palm.basicStyle.onHit.chance,.35);

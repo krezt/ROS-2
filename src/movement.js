@@ -103,6 +103,26 @@ function buildDistanceToGoals(state, actorId, goals) {
   return distance;
 }
 
+
+export function shortestPursuitStepsToEngagement(state, actorId, targetId, { range = null } = {}) {
+  assertBattlefieldInvariants(state);
+  const actor = requireUnit(state, actorId, 'actor');
+  const target = requireUnit(state, targetId, 'target');
+  invariant(actor.position && target.position, 'Actor and target must have battlefield positions.');
+
+  const effectiveRange = range ?? actor.weapon.weaponRange;
+  invariant(Number.isInteger(effectiveRange) && effectiveRange >= 0,
+    'Pursuit range must be a non-negative integer.', { effectiveRange });
+
+  if (actor.lifeState !== LIFE_STATE.ALIVE || target.lifeState !== LIFE_STATE.ALIVE) return null;
+  if (manhattanDistance(actor.position, target.position) <= effectiveRange) return 0;
+
+  const goals = getEngagementCells(state, actorId, targetId, { range: effectiveRange });
+  if (goals.length === 0) return null;
+  const distances = buildDistanceToGoals(state, actorId, goals);
+  const shortestSteps = distances.get(cellKey(actor.position.row, actor.position.col));
+  return Number.isInteger(shortestSteps) && shortestSteps >= 0 ? shortestSteps : null;
+}
 /**
  * Pure pathfinding decision for the actor's CURRENT next pursuit square.
  * It never mutates state.
@@ -111,7 +131,7 @@ function buildDistanceToGoals(state, actorId, goals) {
  * equally optimal immediate squares exist, exactly one synchronized RNG choice
  * is made for the current step. The engine will re-run this after movement.
  */
-export function planPursuitStep(state, actorId, targetId, { rng = null, range = null } = {}) {
+export function planPursuitStep(state, actorId, targetId, { rng = null, range = null, ignoreAttacksRemaining = false } = {}) {
   assertBattlefieldInvariants(state);
   const actor = requireUnit(state, actorId, 'actor');
   const target = requireUnit(state, targetId, 'target');
@@ -140,7 +160,7 @@ export function planPursuitStep(state, actorId, targetId, { rng = null, range = 
     });
   }
 
-  if (actor.resources.attacksRemaining <= 0) {
+  if (!ignoreAttacksRemaining && actor.resources.attacksRemaining <= 0) {
     return Object.freeze({
       result: PURSUIT_RESULT.NO_ATTACKS,
       actorId,
@@ -278,8 +298,8 @@ export function moveUnitOneStepWithResource(state, unitId, to) {
  * Stage-3 pursuit advancement: plan CURRENT best step, then execute exactly one
  * square and spend one Movement. No scheduler and no attack resolution yet.
  */
-export function advancePursuitOneStep(state, actorId, targetId, { rng = null, range = null } = {}) {
-  const plan = planPursuitStep(state, actorId, targetId, { rng, range });
+export function advancePursuitOneStep(state, actorId, targetId, { rng = null, range = null, ignoreAttacksRemaining = false } = {}) {
+  const plan = planPursuitStep(state, actorId, targetId, { rng, range, ignoreAttacksRemaining });
   if (plan.result !== PURSUIT_RESULT.MOVE) {
     return Object.freeze({ ...plan, moved: false, movementBefore: null, movementAfter: null });
   }

@@ -14,7 +14,8 @@ import { RoundCoordinator } from './round-coordinator.js';
 export const AI_DIFFICULTY = Object.freeze({
   BEGINNER: 'BEGINNER',
   NORMAL: 'NORMAL',
-  HARD: 'HARD'
+  HARD: 'HARD',
+  TACTICAL: 'TACTICAL'
 });
 
 const HOSTILE_STATUS_VALUE = Object.freeze({
@@ -318,6 +319,283 @@ function normalPick(state,actor,roundNumber,decisionRng,history=[]){
   return candidates.length?chooseByScore(candidates,decisionRng,`AI_NORMAL_TIE:${actor.unitId}:R${roundNumber}`):null;
 }
 
+
+const TACTICAL_PHYSICAL_THREATS = new Set(['Warrior','Barbarian','Rogue','Paladin','Archer','Monk','Shinobi']);
+const TACTICAL_SUSTAINERS = new Set(['Cleric','Paladin','Monk','Necromancer','Shinobi','Electromancer']);
+const TACTICAL_CASTERS = new Set(['Cleric','Mage','Paladin','Necromancer','Mystic','Electromancer']);
+
+function aiStatusStacks(unit,key){
+  const s=findStatus(unit,key);
+  return Math.max(0,Math.trunc(s?.data?.stacks??(s?1:0)));
+}
+function unitHasAny(unit,keys){return keys.some(k=>!!findStatus(unit,k));}
+function unitSideUnits(state,side){return canonicalUnits(state).filter(u=>u.side===side);}
+function lowLivingOnSide(state,side,threshold=.38){return living(state,side).filter(u=>hpRatio(u)<=threshold);}
+function rampageState(unit){return aiStatusStacks(unit,'atk_up')>=2&&aiStatusStacks(unit,'def_down')>=2;}
+function investedOffense(unit){
+  let v=0;
+  v+=aiStatusStacks(unit,'atk_up')*48+aiStatusStacks(unit,'sdm_up')*52;
+  if(findStatus(unit,'arcane_echo'))v+=180;
+  if(findStatus(unit,'flurry_style'))v+=125;
+  if(findStatus(unit,'counterstance'))v+=105;
+  if(findStatus(unit,'bloodlust'))v+=65;
+  if(findStatus(unit,'invisible'))v+=70;
+  if(findStatus(unit,'divine_shield'))v+=90;
+  if(findStatus(unit,'magic_shield'))v+=55;
+  if(findStatus(unit,'physical_shield'))v+=55;
+  if(findStatus(unit,'ward'))v+=70;
+  if(findStatus(unit,'def_up'))v+=35;
+  return v;
+}
+function dangerousDebuffValue(unit){
+  let v=0;
+  if(findStatus(unit,'stun'))v+=220;
+  if(findStatus(unit,'berserk'))v+=190;
+  if(findStatus(unit,'spellbreak'))v+=170;
+  if(findStatus(unit,'suppression'))v+=150;
+  if(findStatus(unit,'marked'))v+=150;
+  if(findStatus(unit,'taunt'))v+=100;
+  if(findStatus(unit,'blind'))v+=65;
+  v+=aiStatusStacks(unit,'def_down')*25;
+  if(findStatus(unit,'rend_def_down'))v+=45;
+  return v;
+}
+function focusPriority(state,actor,target){
+  if(!target||target.side===actor.side||target.lifeState!==LIFE_STATE.ALIVE)return 0;
+  let v=(1-hpRatio(target))*180;
+  if(hpRatio(target)<=.35)v+=130;
+  if(hpRatio(target)<=.20)v+=90;
+  if(findStatus(target,'marked'))v+=135;
+  v+=aiStatusStacks(target,'def_down')*35;
+  if(findStatus(target,'rend_def_down'))v+=45;
+  if(rampageState(target))v+=220;
+  if(findStatus(target,'arcane_echo'))v+=115;
+  if(findStatus(target,'flurry_style'))v+=70;
+  if(findStatus(target,'counterstance'))v+=55;
+  if(target.archetypeId==='Cleric')v+=35;
+  if(findStatus(target,'divine_shield'))v-=95;
+  if(findStatus(target,'physical_shield'))v-=35;
+  return v;
+}
+function immediateMeleeThreats(state,actor){
+  return enemies(state,actor).filter(e=>e.weapon?.mode==='MELEE'&&distance(actor,e)<=Math.max(4,(e.weapon?.weaponRange??1)+3));
+}
+function teamPhysicalPressure(state,actor){
+  const friends=allies(state,actor);
+  return enemies(state,actor).filter(e=>TACTICAL_PHYSICAL_THREATS.has(e.archetypeId)).reduce((n,e)=>{
+    const threatened=friends.some(a=>distance(a,e)<=Math.max(5,(e.weapon?.weaponRange??1)+4));
+    return n+(threatened?1:0);
+  },0);
+}
+function hasPremonitionOpportunity(state,actor){
+  if(allies(state,actor).some(u=>findStatus(u,'premonition')))return false;
+  const friends=allies(state,actor);
+  const dead=unitSideUnits(state,actor.side).filter(u=>u.lifeState===LIFE_STATE.DEAD).length;
+  return friends.some(u=>
+    (u.archetypeId==='Mage'&&(findStatus(u,'arcane_echo')||aiStatusStacks(u,'sdm_up')>0))||
+    (u.archetypeId==='Cleric'&&dead>0)||
+    (u.archetypeId==='Necromancer'&&enemies(state,actor).reduce((n,e)=>n+poisonTotal(e),0)>=350)||
+    (u.archetypeId==='Archer'&&enemies(state,actor).some(e=>findStatus(e,'marked')))
+  );
+}
+function tacticalAdjustment(state,actor,candidate){
+  const {ability,target,targetUnit}=candidate;
+  const tgt=targetUnit??(target?.type===TARGET_TYPE.UNIT?state.units[target.unitId]:null);
+  let bonus=0;
+  if(tgt&&tgt.side!==actor.side){
+    bonus+=focusPriority(state,actor,tgt)*.55;
+    if(ability.actionKind===ACTION_KIND.BASIC_ATTACK&&actor.weapon?.mode==='MELEE'&&findStatus(tgt,'counterstance'))bonus-=125;
+  }
+
+  switch(ability.id){
+    case 'SHIELDWALL': {
+      const exposed=allies(state,actor).filter(u=>u.unitId!==actor.unitId&&(hpRatio(u)<.55||findStatus(u,'marked'))).length;
+      const pressure=teamPhysicalPressure(state,actor);
+      bonus+=exposed*95+pressure*30-(exposed===0&&pressure<2?430:120);
+      break;
+    }
+    case 'WARHORN': {
+      const active=allies(state,actor).filter(u=>findStatus(u,'warhorn_attacks_up')).length;
+      bonus+=active>=Math.max(1,allies(state,actor).length-1)?-390:45;
+      break;
+    }
+    case 'DIG_IN': bonus+=hpRatio(actor)<.45?240:hpRatio(actor)<.65?110:-100;break;
+    case 'INSULT': if(tgt&&(hpRatio(actor)<.55||allies(state,actor).some(u=>u.unitId!==actor.unitId&&hpRatio(u)<.35)))bonus+=105;break;
+
+    case 'RAMPAGE': {
+      if(rampageState(actor)||aiStatusStacks(actor,'atk_up')>=2)bonus-=320;
+      else if(hpRatio(actor)>=.72&&!findStatus(actor,'marked')&&dangerousDebuffValue(actor)<120)bonus+=235;
+      else if(hpRatio(actor)<.58||findStatus(actor,'marked'))bonus-=330;
+      break;
+    }
+    case 'BLOODLUST': if(aiStatusStacks(actor,'atk_up')>=2)bonus+=220;else bonus+=35;break;
+    case 'REND': if(tgt&&aiStatusStacks(tgt,'def_down')===0&&!findStatus(tgt,'rend_def_down'))bonus+=55;break;
+    case 'SMASH': if(tgt&&(focusPriority(state,actor,tgt)>=180||TACTICAL_SUSTAINERS.has(tgt.archetypeId)))bonus+=70;break;
+
+    case 'SHADOWSTEP': bonus+=findStatus(actor,'invisible')||findStatus(actor,'shadowstep_crit')?-300:(hpRatio(actor)>.48?145:20);break;
+    case 'EXPOSE': if(tgt){bonus+=findStatus(tgt,'marked')?-260:95;if(findStatus(actor,'shadowstep_crit'))bonus+=150;}break;
+    case 'BACKSTAB': if(tgt){if(findStatus(tgt,'marked'))bonus+=200;if(findStatus(actor,'shadowstep_crit'))bonus+=235;}break;
+    case 'SMOKE_BOMB': {
+      const emergency=hpRatio(actor)<.48||allies(state,actor).some(u=>hpRatio(u)<.36||findStatus(u,'marked'));
+      bonus+=emergency?210:-300;
+      break;
+    }
+    case 'POISON_DAGGER': bonus+=findStatus(actor,'poison_imbue')?-230:55;break;
+
+    case 'HUNTERS_MARK': if(tgt)bonus+=findStatus(tgt,'marked')?-320:170;break;
+    case 'SNIPE': if(tgt&&findStatus(tgt,'marked'))bonus+=225;if(aiStatusStacks(actor,'atk_up')>0)bonus+=95;break;
+    case 'RANGERS_FOCUS': {
+      if(tgt?.unitId===actor.unitId&&enemies(state,actor).some(e=>findStatus(e,'marked'))&&!findStatus(actor,'atk_up'))bonus+=145;
+      if(tgt&&hpRatio(tgt)<.45)bonus+=55;
+      break;
+    }
+    case 'COVER_FIRE': if(allies(state,actor).some(u=>hpRatio(u)<.40))bonus+=115;break;
+
+    case 'ARCANE_SURGE': {
+      const threatened=hpRatio(actor)<.58||immediateMeleeThreats(state,actor).length>0||findStatus(actor,'marked');
+      const already=findStatus(actor,'def_up')&&aiStatusStacks(actor,'sdm_up')>0;
+      if(already)bonus-=300;else bonus+=threatened?205:55;
+      break;
+    }
+    case 'ARCANE_ECHO': if(findStatus(actor,'arcane_echo'))bonus-=340;else bonus+=aiStatusStacks(actor,'sdm_up')>0?125:25;break;
+    case 'FIREBALL': if(findStatus(actor,'arcane_echo'))bonus+=235;if(aiStatusStacks(actor,'sdm_up')>0)bonus+=95;break;
+    case 'METEOR': if(tgt&&tgt.weapon?.mode==='MELEE'&&distance(actor,tgt)<=6)bonus+=190;else if(tgt&&focusPriority(state,actor,tgt)>220)bonus+=70;break;
+    case 'ARCANE_WARD': {
+      const magicThreats=enemies(state,actor).filter(e=>TACTICAL_CASTERS.has(e.archetypeId)).length;
+      const active=allies(state,actor).filter(u=>findStatus(u,'magic_shield')).length;
+      bonus+=active>=Math.max(1,allies(state,actor).length-1)?-330:magicThreats*35;
+      break;
+    }
+
+    case 'DIVINE_SHIELD': if(tgt){bonus+=hpRatio(tgt)<.45?220:0;if(findStatus(tgt,'marked'))bonus+=170;if(findStatus(tgt,'divine_shield'))bonus-=300;}break;
+    case 'CLEANSE': if(tgt){const v=dangerousDebuffValue(tgt);bonus+=v>=120?v*.65:-150;}break;
+    case 'SANCTIFY': {
+      const dangerous=enemies(state,actor).filter(e=>['Mystic','Rogue','Monk','Archer'].includes(e.archetypeId)).length;
+      const warded=allies(state,actor).filter(u=>findStatus(u,'ward')).length;
+      bonus+=warded>=Math.max(1,allies(state,actor).length-1)?-280:dangerous*35;
+      break;
+    }
+
+    case 'FLURRY': if(findStatus(actor,'flurry_style'))bonus-=330;else bonus+=hpRatio(actor)>.60&&!findStatus(actor,'marked')?125:-80;break;
+    case 'COUNTERSTANCE': {
+      if(findStatus(actor,'counterstance'))bonus-=320;
+      else {const melee=immediateMeleeThreats(state,actor).length;bonus+=melee*75+(findStatus(actor,'flurry_style')?150:0)-(melee===0?80:0);}
+      break;
+    }
+    case 'MONK_ATTACK': if(findStatus(actor,'flurry_style')&&findStatus(actor,'counterstance'))bonus+=205;break;
+    case 'PALM_HIT': if(tgt&&focusPriority(state,actor,tgt)>180)bonus+=95;break;
+    case 'CHI_WAVE': {
+      const rescue=allies(state,actor).reduce((n,u)=>n+dangerousDebuffValue(u),0);
+      bonus+=rescue>=180?Math.min(260,rescue*.45):-230;
+      break;
+    }
+    case 'SECOND_WIND': bonus+=dangerousDebuffValue(actor)>=120?280:hpRatio(actor)<.38?130:-170;break;
+
+    case 'LIFE_DRAIN': bonus+=hpRatio(actor)<.55?145:0;break;
+    case 'DEATH_TOUCH': if(tgt)bonus+=hpRatio(tgt)>.70?120:-35;break;
+    case 'POISON_BOLT': if(tgt){bonus+=beneficialCount(tgt)*45;if(poisonTotal(tgt)<100)bonus+=45;}break;
+    case 'PLAGUE': {
+      const total=enemies(state,actor).reduce((n,u)=>n+poisonTotal(u),0);
+      bonus+=(enemies(state,actor).length>=3&&total<450)?125:-90;
+      break;
+    }
+    case 'PLAGUE_DETONATION': {
+      const total=enemies(state,actor).reduce((n,u)=>n+poisonTotal(u),0);
+      bonus+=total>=500?210:total>=300?80:-220;
+      break;
+    }
+
+    case 'PREMONITION': bonus+=hasPremonitionOpportunity(state,actor)?155:-380;break;
+    case 'MENTAL_BREAKDOWN': if(tgt){
+      const lowFriendOfTarget=lowLivingOnSide(state,tgt.side,.36).length>0;
+      if(lowFriendOfTarget&&TACTICAL_SUSTAINERS.has(tgt.archetypeId))bonus+=230;
+      if(tgt.archetypeId==='Mage'&&findStatus(tgt,'arcane_echo'))bonus+=230;
+      if(tgt.archetypeId==='Cleric'&&unitSideUnits(state,tgt.side).some(u=>u.lifeState===LIFE_STATE.DEAD))bonus+=190;
+      if(!TACTICAL_CASTERS.has(tgt.archetypeId))bonus-=80;
+      break;
+    }
+    case 'MYSTIC_STUN': if(tgt){bonus+=Math.min(210,focusPriority(state,actor,tgt)*.55);if(rampageState(tgt))bonus+=180;if(findStatus(tgt,'flurry_style'))bonus+=100;}break;
+    case 'BERSERK': if(tgt){if(TACTICAL_PHYSICAL_THREATS.has(tgt.archetypeId))bonus+=115;if(lowLivingOnSide(state,tgt.side,.34).length&&TACTICAL_SUSTAINERS.has(tgt.archetypeId))bonus+=135;}break;
+    case 'MIND_SHATTER': if(tgt&&TACTICAL_PHYSICAL_THREATS.has(tgt.archetypeId))bonus+=85;break;
+
+    case 'BLEED_STRIKE': bonus+=findStatus(actor,'bleed_imbue')?-260:120;break;
+    case 'THIEFS_HASTE': bonus+=findStatus(actor,'shinobi_haste')?-260:(findStatus(actor,'bleed_imbue')?190:65);break;
+    case 'SHINOBI_ATTACK': if(findStatus(actor,'bleed_imbue'))bonus+=95;if(findStatus(actor,'shinobi_haste'))bonus+=135;break;
+    case 'REGEN_POTION': bonus+=hpRatio(actor)<.42?250:hpRatio(actor)<.58?80:-230;break;
+    case 'DISPEL': if(tgt){
+      if(tgt.side===actor.side){
+        const rescue=dangerousDebuffValue(tgt);
+        const collateral=beneficialCount(tgt)*55;
+        bonus+=rescue>=120?rescue-collateral:-330;
+      }else{
+        const investment=investedOffense(tgt);
+        const wouldHelpThem=(findStatus(tgt,'marked')?150:0)+aiStatusStacks(tgt,'def_down')*30+(findStatus(tgt,'blind')?45:0);
+        bonus+=investment>=150?investment-wouldHelpThem:-320;
+      }
+      break;
+    }
+
+    case 'POWER_SURGE': {
+      const already=allies(state,actor).filter(u=>aiStatusStacks(u,'atk_up')>0||aiStatusStacks(u,'sdm_up')>0).length;
+      bonus+=already>=Math.max(1,Math.ceil(allies(state,actor).length*.75))?-360:90;
+      break;
+    }
+    case 'GOD_TEMPEST': bonus+=hpRatio(actor)<.38||dangerousDebuffValue(actor)>=160?300:-260;break;
+    case 'SHIFT': bonus+=immediateMeleeThreats(state,actor).length>0||findStatus(actor,'marked')?160:-90;break;
+    case 'ELECTRICAL_STORM': if(allies(state,actor).filter(u=>hpRatio(u)<.55).length>=2)bonus+=120;break;
+  }
+  return bonus;
+}
+
+function tacticalScoredCandidates(state,actor,roundNumber,history=[]){
+  return enumerateAiCandidates({state,actorId:actor.unitId,roundNumber}).map(c=>({
+    ...c,
+    score:candidateScore(state,actor,c,{history})+tacticalAdjustment(state,actor,c)
+  }));
+}
+
+function tacticalComboSynergy(state,actors,combo){
+  let bonus=0;
+  const focus=new Map();
+  const setupTargets=new Set();
+  for(let i=0;i<combo.length;i++){
+    const c=combo[i],actor=actors[i];
+    const hostile=c.target?.type===TARGET_TYPE.UNIT?state.units[c.target.unitId]:null;
+    if(hostile&&hostile.side!==actor.side){
+      focus.set(hostile.unitId,(focus.get(hostile.unitId)??0)+1);
+      const keys=effectKeys(c);
+      if(keys.has('marked')||keys.has('def_down')||keys.has('rend_def_down')||(c.ability.effects??[]).some(e=>e.type==='STRIP_DEFENSIVE_BUFF'))setupTargets.add(hostile.unitId);
+    }
+  }
+  for(const [id,count] of focus){
+    if(count>1){
+      const target=state.units[id];
+      bonus+=(count-1)*(58+Math.min(85,focusPriority(state,actors[0],target)*.18));
+      if(rampageState(target))bonus+=(count-1)*70;
+    }
+  }
+  for(let i=0;i<combo.length;i++){
+    const c=combo[i],actor=actors[i];
+    const hostile=c.target?.type===TARGET_TYPE.UNIT?state.units[c.target.unitId]:null;
+    if(hostile&&hostile.side!==actor.side&&setupTargets.has(hostile.unitId)&&hasDirectOffense(c.ability))bonus+=80;
+  }
+  return bonus;
+}
+
+function tacticalTeamPlan({state,roundNumber,side,decisionRng,actionHistory=null}){
+  const actors=living(state,side).filter(u=>u.entityKind!=='SUMMON');
+  const lists=actors.map(actor=>tacticalScoredCandidates(state,actor,roundNumber,actionHistory?.[actor.unitId]??[]).sort((a,b)=>b.score-a.score||a.declaration.actionId.localeCompare(b.declaration.actionId)).slice(0,4));
+  if(lists.some(x=>x.length===0))return actors.map((actor,i)=>lists[i][0]??null);
+  let bestScore=-Infinity,best=[];
+  cartesianTop(lists,(combo)=>{
+    const score=combo.reduce((n,c)=>n+c.score,0)+comboSynergy(state,actors,combo)+tacticalComboSynergy(state,actors,combo);
+    if(score>bestScore+1e-9){bestScore=score;best=[combo.slice()];}
+    else if(Math.abs(score-bestScore)<1e-9)best.push(combo.slice());
+  });
+  best.sort((a,b)=>JSON.stringify(a.map(c=>[c.declaration.actionId,c.target])).localeCompare(JSON.stringify(b.map(c=>[c.declaration.actionId,c.target]))));
+  return best.length===1?best[0]:decisionRng.choose(best,`AI_TACTICAL_TEAM_TIE:R${roundNumber}:${side}`);
+}
+
 function hostileUnitId(candidate,state,actor){
   if(candidate.target?.type!==TARGET_TYPE.UNIT)return null;
   const u=state.units[candidate.target.unitId];return u&&u.side!==actor.side?u.unitId:null;
@@ -366,7 +644,8 @@ export function planAiDeclarations({
   invariant(decisionRng instanceof GameplayRng,'AI planning requires a dedicated GameplayRng-compatible decision RNG.');
   const actors=living(state,side).filter(u=>u.entityKind!=='SUMMON');
   let picks;
-  if(difficulty===AI_DIFFICULTY.HARD) picks=hardTeamPlan({state,roundNumber,side,decisionRng,actionHistory});
+  if(difficulty===AI_DIFFICULTY.TACTICAL) picks=tacticalTeamPlan({state,roundNumber,side,decisionRng,actionHistory});
+  else if(difficulty===AI_DIFFICULTY.HARD) picks=hardTeamPlan({state,roundNumber,side,decisionRng,actionHistory});
   else picks=actors.map(actor=>{const h=actionHistory?.[actor.unitId]??[];return difficulty===AI_DIFFICULTY.BEGINNER?beginnerPick(state,actor,roundNumber,decisionRng,h):normalPick(state,actor,roundNumber,decisionRng,h);});
   return actors.map((actor,i)=>picks[i]?.declaration??createHoldDeclaration({declarationId:`D${roundNumber}:${actor.unitId}`,roundNumber,actorId:actor.unitId}));
 }

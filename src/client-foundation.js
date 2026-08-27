@@ -144,7 +144,7 @@ function statusTooltipText(status,{poisonAmount=null}={}){
     unstoppable:'Beneficial. Blocks configured hard-control effects while active without consuming Ward.',
     detection:'Beneficial. Allows new direct hostile acquisition of Invisible enemies while active.',
     invisible:'Beneficial. Prevents new direct hostile target acquisition. Existing legal target locks remain valid.',
-    marked:'Negative. Increases incoming damage by 85% while active.',
+    marked:'Negative. Increases incoming damage by 65% while active.',
     blind:`Negative. Physical actions have a ${pct(d.whiffChance??.50)} chance to whiff while Blind.`,
     def_down:'Negative. Reduces ARM/physical mitigation while active.',
     rend_def_down:`Negative. Each Rend stack reduces DEF by ${pct(d.pctPerStack??.10)} multiplicatively; stacks refresh together.`,
@@ -243,6 +243,7 @@ function summarizeEffect(actor,effect,ability){
       const amount=Math.max(1,Math.floor((actor.stats?.maxHP??0)*pct));
       return `Regen ${amount} HP/round (${fmtPct(pct*100)} max HP) • ${effect.duration??'?'} round${effect.duration===1?'':'s'}`;
     }
+    if(key==='poison_imbue'&&Number.isFinite(effect.data?.damageRatio))return `Poison Imbue • successful basic hits add Poison equal to ${fmtPct(effect.data.damageRatio*100)} of hit damage • ${effect.duration??'?'} rounds`;
     return `${String(effect.key).replaceAll('_',' ')} • ${effect.duration??'?'} round${effect.duration===1?'':'s'}${Number(effect.chance)<1?` • ${fmtPct(effect.chance*100)} chance`:''}`;
   }
   if(type==='LIFE_DRAIN')return `${scaledRange(effect.min,effect.max,directMultiplier(actor,'SDM'))} magical damage and heal for damage dealt`;
@@ -266,9 +267,11 @@ export function abilityDetailModel(actor,ability){
   invariant(actor&&ability,'abilityDetailModel requires actor and ability.');
   const lines=[];
   if(ability.actionKind==='BASIC_ATTACK'){
-    const style=ability.basicStyle??{};const count=style.attacksSet??Math.max(0,actor.resources?.attacksMax??0)+(style.attacksDelta??0);
+    const style=ability.basicStyle??{};const resourceCount=style.attacksSet??Math.max(0,actor.resources?.attacksMax??0)+(style.attacksDelta??0);
+    const count=Number.isInteger(style.ordinaryAttackLimit)?Math.min(resourceCount,style.ordinaryAttackLimit):resourceCount;
     const dmgMult=(style.damageMultiplier??1)*directMultiplier(actor,'ATK');
     lines.push(`${count} swing${count===1?'':'s'} • ${scaledRange(actor.weapon.attackBaseMin,actor.weapon.attackBaseMax,dmgMult)} physical per hit before ARM`);
+    if(Number.isInteger(style.ordinaryAttackLimit)&&resourceCount>count)lines.push(`${resourceCount-count} remaining attack resource${resourceCount-count===1?'':'s'} reserved for normal counters`);
     if(style.startupDelayCycles)lines.push(`Begins after ${style.startupDelayCycles} initiative cycle${style.startupDelayCycles===1?'':'s'}`);
     if(style.firstSuccessfulHit){
       const f=style.firstSuccessfulHit;
@@ -276,7 +279,8 @@ export function abilityDetailModel(actor,ability){
       if(f.stealthDamageMultiplier||f.stealthCritBonus)lines.push(`Primed from Invisibility: ${Math.round((f.stealthDamageMultiplier??f.damageMultiplier??1)*100)}% weapon damage • +${Math.round(((f.critBonus??0)+(f.stealthCritBonus??0))*100)}% crit`);
     }
     if(style.movementMultiplier!=null)lines.push(`Movement ×${style.movementMultiplier}`);
-    if(style.onHit?.statusKey)lines.push(`On hit: ${String(style.onHit.statusKey).replaceAll('_',' ')}${style.onHit.chance!=null?` (${fmtPct(style.onHit.chance*100)})`:''}`);
+    if(style.onHit?.defenseShredPct)lines.push(`On hit: ${fmtPct(style.onHit.defenseShredPct*100)} multiplicative DEF reduction per stack • ${style.onHit.duration??'?'}R`);
+    else if(style.onHit?.statusKey)lines.push(`On hit: ${String(style.onHit.statusKey).replaceAll('_',' ')}${style.onHit.chance!=null?` (${fmtPct(style.onHit.chance*100)})`:''}${style.onHit.duration?` • ${style.onHit.duration}R`:''}`);
     const proc=ability.basicProc;if(proc){const chance=Number.isFinite(proc.roundChance)?`~${fmtPct(proc.roundChance*100)} across a full attack sequence${Number.isFinite(proc.maxPerRound)?` • max ${proc.maxPerRound}/round`:''}`:(Number.isFinite(proc.chance)?`${fmtPct(proc.chance*100)} per successful hit`:'guaranteed');let effect=proc.label??'Passive proc';if(proc.type==='DAMAGE')effect+=` • ${scaledRange(proc.min??0,proc.max??proc.min??0,directMultiplier(actor,proc.scalesWith??'SDM'))} ${String(proc.damageType??'MAGICAL').toLowerCase()} damage`;else if(proc.type==='LIFE_DRAIN')effect+=` • ${scaledRange(proc.min??0,proc.max??proc.min??0,directMultiplier(actor,proc.scalesWith??'SDM'))} magical drain`;else if(proc.type==='HEAL_SELF')effect+=` • ${scaledRange(proc.min??0,proc.max??proc.min??0,directMultiplier(actor,proc.scalesWith??'SDM'))} self-heal`;else if(proc.type==='STATUS'||proc.type==='STATUS_SELF')effect+=` • ${String(proc.key??'status').replaceAll('_',' ')}${proc.duration?` ${proc.duration}R`:''}`;lines.push(`Passive: ${effect} • ${chance}`);}
   }
   for(const effect of ability.effects??[]){const line=summarizeEffect(actor,effect,ability);if(line)lines.push(line);}
