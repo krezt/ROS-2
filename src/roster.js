@@ -50,7 +50,7 @@ const classes = {
   ab('SMOKE_BOMB','Smoke Bomb','fast',A.ABILITY,T.ALL_ENEMIES,[status('blind',1,{to:'ALL_ENEMIES',data:{whiffChance:.50}}),heal(0,0,{to:'SELF',pctMaxHP:.15})],{migrationStatus:ROSTER_MIGRATION_STATUS.PROVISIONAL,spatialPolicy:'LEGACY_GLOBAL_PENDING_REVIEW'})
  ]},
  Cleric:{baseStats:{maxHP:1784,QKN:15},identity:'Primary restorative and defensive support with healing, poison cleansing, protection and resurrection.',combat:{movementMax:11,attacksMax:6,attackInterval:2},weapon:{weaponProfileId:'CLERIC_MACE',mode:'MELEE',weaponRange:2,preferredRange:2,counterMoveMax:1,attackBaseMin:35,attackBaseMax:60},abilities:[
-  ab('CLERIC_ATTACK','Attack',0,A.BASIC_ATTACK,T.UNIT,[],{basicProc:{type:'HEAL_SELF',chance:.15,min:100,max:250,scalesWith:'SDM',label:'Prayer Mend'}}),
+  ab('CLERIC_ATTACK','Attack',0,A.BASIC_ATTACK,T.UNIT,[],{basicProc:{type:'HEAL_SELF',chance:.15,min:85,max:213,scalesWith:'SDM',label:'Prayer Mend'}}),
   ab('DEFENSIVE_AURA','Defensive Aura',2,A.SPELL,T.SELF,[{type:'HEAL_PERCENT_ROLL',minPct:.40,maxPct:.60,to:'SELF'},status('def_up',4,{to:'SELF'})],{note:'2-cycle self-only focus-fire counterplay: restore a randomized 40–60% max HP and substantially reinforce DEF.'}),
   ab('PIERCING_LIGHT','Piercing Light',3,A.SPELL,T.GROUND,[{type:'AOE_DAMAGE',min:150,max:250,damageType:D.MAGICAL,scalesWith:'SDM',defensePenetration:.30,dodgeable:false,hostileOnly:true},{type:'AOE_REMOVE_STATUS',key:'invisible',hostileOnly:true,reason:'PIERCING_LIGHT_REVEAL'}],{area:{shape:'SQUARE_7X7'},castRange:999,note:'3-cycle 7x7 holy AoE: deals 150–250 base magical damage to opposing occupants and strips Invisibility from opposing champions caught in the area.'}),
   ab('GUARDIAN_ANGEL','Guardian Angel','fast',A.SPELL,T.UNIT,[heal(100,175),status('divine_shield',1,{data:{pct:.60}})],{note:'Emergency single-target protection: heal 100–175 and grant 60% Divine Shield for the current round only.'}),
@@ -72,7 +72,7 @@ const classes = {
   ab('DIVINE_SHIELD','Divine Shield','fast',A.SPELL,T.UNIT,[status('divine_shield',2,{data:{pct:.60}})]),
   ab('CLEANSE','Cleanse','normal',A.SPELL,T.UNIT,[{type:'CLEANSE',scope:'TARGET',mode:'NEGATIVE_AND_BLEED'},heal(20,40)]),
   ab('SANCTIFY','Sanctify','slow',A.SPELL,T.ALL_ALLIES,[status('ward',3,{to:'ALL_ALLIES'})],{note:'Slow team protection spell: each living ally gains one Ward charge against the next hostile status/debuff/CC.'}),
-  ab('JUDGMENT','Judgment','slow',A.SPELL,T.UNIT,[{type:'CONDITIONAL_DAMAGE',min:200,max:300,scalesWith:'SDM',damageType:D.MAGICAL,defensePenetration:.25,afflictedMultiplier:3.0}],{note:'Deals 200–300 base magical damage; total damage is tripled against an afflicted target.'})
+  ab('JUDGMENT','Judgment','slow',A.SPELL,T.UNIT,[{type:'CONDITIONAL_DAMAGE',min:200,max:300,scalesWith:'SDM',damageType:D.MAGICAL,defensePenetration:.25,afflictedMultiplier:3.5}],{note:'Deals 200–300 base magical damage; total damage rises to 350% against an afflicted target.'})
  ]},
  Archer:{baseStats:{maxHP:1700,QKN:14},identity:'Long-range physical pressure; precision, marks, ranged control and area barrages.',combat:{movementMax:12,attacksMax:7,attackInterval:2},weapon:{weaponProfileId:'LONGBOW',mode:'RANGED',weaponRange:6,preferredRange:6,counterMoveMax:3,attackBaseMin:69,attackBaseMax:106,critBonus:.075},abilities:[
   ab('ARCHER_ATTACK','Attack',0,A.BASIC_ATTACK,T.UNIT,[],{basicStyle:{damageMultiplier:0.90},note:'Standard shot: each weapon strike deals 90% of normal weapon damage.'}),

@@ -32,7 +32,7 @@ test('Stage 25G roster balance values match the requested update',()=>{
   const necroProc=getAbility('Necromancer','NECRO_ATTACK').basicProc;
   assert.deepEqual([necroProc.min,necroProc.max],[75,200]);
   const clericProc=getAbility('Cleric','CLERIC_ATTACK').basicProc;
-  assert.deepEqual([clericProc.min,clericProc.max],[100,250]);
+  assert.deepEqual([clericProc.min,clericProc.max],[85,213]);
 
   const drain=getAbility('Necromancer','LIFE_DRAIN').effects[0];
   assert.deepEqual([drain.min,drain.max],[150,300]);
@@ -44,7 +44,7 @@ test('Stage 25G roster balance values match the requested update',()=>{
 
   const judgment=getAbility('Paladin','JUDGMENT').effects[0];
   assert.deepEqual([judgment.min,judgment.max],[200,300]);
-  assert.equal(judgment.afflictedMultiplier,3.0);
+  assert.equal(judgment.afflictedMultiplier,3.5);
   assert.equal(getAbility('Paladin','PALADIN_ATTACK').basicProc.chance,.25);
 
   const storm=getAbility('Electromancer','ELECTRICAL_STORM').effects[0];

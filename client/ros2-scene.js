@@ -112,6 +112,14 @@ export class RosBattleScene extends Phaser.Scene {
     this.load.image('vfx-paladin-heal','assets/vfx/paladin-heal-pulse.png');
     this.load.image('vfx-paladin-emblem','assets/vfx/paladin-divine-emblem.png');
     this.load.image('vfx-paladin-proc','assets/vfx/paladin-basic-proc.png');
+    this.load.image('vfx-rogue-poison-hit','assets/vfx/rogue-poison-dagger-hit.png');
+    this.load.image('vfx-rogue-expose','assets/vfx/rogue-expose.png');
+    this.load.image('vfx-rogue-smoke-cast','assets/vfx/rogue-smoke-bomb-cast.png');
+    this.load.image('vfx-rogue-smoke-blind','assets/vfx/rogue-smoke-bomb-blind.png');
+    this.load.image('vfx-rogue-imbue','assets/vfx/rogue-poison-imbue.png');
+    this.load.image('vfx-rogue-backstab','assets/vfx/rogue-backstab-hit.png');
+    this.load.image('vfx-rogue-shadowstep','assets/vfx/rogue-shadowstep.png');
+    this.load.image('vfx-rogue-poison-tick','assets/vfx/rogue-poison-tick.png');
     this.load.image('vfx-necro-target','assets/vfx/necromancer-target-reticle.png');
     this.load.image('vfx-necro-toxic-orb','assets/vfx/necromancer-toxic-orb.png');
     this.load.image('vfx-necro-skull','assets/vfx/necromancer-skull-projectile.png');
@@ -825,10 +833,17 @@ export class RosBattleScene extends Phaser.Scene {
       (raw==='blind' && ability==='MIND_SHATTER')
     );
     const paladinBasicProcFx = !ending && command.payload?.eventType==='STATUS_APPLY' && targetView &&
-      source?.unit?.archetypeId==='Paladin' && raw==='def_up' && command.payload?.data?.proc===true;
+      raw==='def_up' && command.payload?.data?.proc===true && (
+        source?.unit?.archetypeId==='Paladin' ||
+        (targetView?.unit?.archetypeId==='Paladin' && String(command.payload?.procLabel??'').toUpperCase()==='RESOLVE')
+      );
     const monkBasicProcFx = !ending && command.payload?.eventType==='STATUS_APPLY' && targetView &&
       source?.unit?.archetypeId==='Monk' && raw==='atk_up' && ability==='MONK_ATTACK' && command.payload?.data?.proc===true;
-    if(!shouldFloatStatusFeedback(command) && !mysticSpecialFx && !paladinBasicProcFx && !monkBasicProcFx)return;
+    const rogueSmokeBlindFx = !ending && command.payload?.eventType==='STATUS_APPLY' && targetView &&
+      source?.unit?.archetypeId==='Rogue' && raw==='blind' && ability==='SMOKE_BOMB';
+    const roguePoisonHitFx = !ending && command.payload?.eventType==='STATUS_APPLY' && targetView &&
+      source?.unit?.archetypeId==='Rogue' && raw==='poison' && Boolean(command.payload?.contribution);
+    if(!shouldFloatStatusFeedback(command) && !mysticSpecialFx && !paladinBasicProcFx && !monkBasicProcFx && !rogueSmokeBlindFx && !roguePoisonHitFx)return;
     // Bleed refreshes may arrive repeatedly in one attack sequence; keep those quiet. Poison contributions stay visible so every poison ability communicates the amount added.
     if(command.payload?.eventType==='STATUS_APPLY'&&wasPresent&&rawKey==='bleed')return;
     const control=new Set(['stun','silence','taunt','berserk','root','suppression','spellbreak']);
@@ -859,6 +874,12 @@ export class RosBattleScene extends Phaser.Scene {
     }
     if(monkBasicProcFx){
       this.pulseImageFx('vfx-monk-basic-proc',targetView.container.x,targetView.container.y-22,{scale:.34,duration:440,alpha:.96,scaleTo:.44,depth:12});
+    }
+    if(rogueSmokeBlindFx){
+      this.pulseImageFx('vfx-rogue-smoke-blind',targetView.container.x,targetView.container.y-22,{scale:.34,duration:440,alpha:.96,scaleTo:.44,depth:12});
+    }
+    if(roguePoisonHitFx){
+      this.pulseImageFx('vfx-rogue-poison-hit',targetView.container.x,targetView.container.y-22,{scale:.17,duration:440,alpha:.96,scaleTo:.22,depth:12});
     }
     if(shouldFloatStatusFeedback(command)){
       const poisonContribution=raw==='poison'&&command.payload?.eventType==='STATUS_APPLY'?Number(command.payload?.contribution?.amount):NaN;
@@ -1271,16 +1292,28 @@ export class RosBattleScene extends Phaser.Scene {
     if(!v||v.unit?.archetypeId!=='Rogue')return;
     const id=String(abilityId??'').toUpperCase();
     const x=v.container.x,y=v.container.y;
+    const target=this.unitViews.get(targetId);
+    const point=targetPos ? gridToWorld(targetPos,this.view) : null;
+    const tx=point?.x??target?.container?.x??x;
+    const ty=(point?.y??target?.container?.y??y)-22;
+    const pulse=(key,px,py,scale=.34,duration=440,scaleTo=.44)=>{
+      this.pulseImageFx(key,px,py,{scale,duration,alpha:.96,scaleTo,depth:12});
+    };
+    if(id==='SHADOWSTEP'){
+      pulse('vfx-rogue-shadowstep',x,y-22);
+      return;
+    }
+    if(id==='POISON_DAGGER'){
+      pulse('vfx-rogue-imbue',x,y-22);
+      return;
+    }
+    if(id==='EXPOSE'){
+      pulse('vfx-rogue-expose',tx,ty);
+      return;
+    }
     if(id==='SMOKE_BOMB'){
-      const offsets=[[-22,-10],[0,-16],[22,-8],[-12,8],[12,10]];
-      offsets.forEach(([ox,oy],i)=>{
-        this.time.delayedCall(this.replayDuration(i*24),()=>{
-          const puff=this.add.circle(x+ox,y+oy,10,0xb7bcc9,.42).setStrokeStyle(2,0xe8ecf7,.55).setDepth(11);
-          this.tweens.add({targets:puff,scaleX:2.2,scaleY:1.8,alpha:0,duration:this.replayDuration(240+i*18),onComplete:()=>puff.destroy()});
-        });
-      });
-      const haze=this.add.ellipse(x,y-2,72,48,0xc8ced8,.18).setDepth(10).setStrokeStyle(2,0xf1f3f8,.35);
-      this.tweens.add({targets:haze,scaleX:1.28,scaleY:1.16,alpha:0,duration:this.replayDuration(280),onComplete:()=>haze.destroy()});
+      pulse('vfx-rogue-smoke-cast',x,y-22);
+      return;
     }
   }
 
@@ -1997,8 +2030,16 @@ export class RosBattleScene extends Phaser.Scene {
     const attacker=this.unitViews.get(command.actorId);
     const electroProc=Boolean(command.payload?.proc===true&&attacker?.unit?.archetypeId==='Electromancer'&&ability==='ELECTRO_ATTACK');
     const necroLifeDripProc=Boolean(command.payload?.proc===true&&attacker?.unit?.archetypeId==='Necromancer'&&String(command.payload?.procLabel??'').toUpperCase()==='LIFE DRIP');
+    const rogueBackstabFx=Boolean(v&&attacker?.unit?.archetypeId==='Rogue'&&ability==='BACKSTAB'&&Number(command.payload?.amount??0)>0);
+    const roguePoisonTickFx=Boolean(v&&type==='POISON'&&String(command.payload?.source??'').toUpperCase()==='STATUS_TICK');
     if(v&&necroLifeDripProc){
       this.pulseImageFx('vfx-necro-target',v.container.x,v.container.y-22,{scale:.12,duration:240,alpha:.92,grow:1.12,depth:12});
+    }
+    if(rogueBackstabFx){
+      this.pulseImageFx('vfx-rogue-backstab',v.container.x,v.container.y-22,{scale:.34,duration:440,alpha:.96,scaleTo:.44,depth:12});
+    }
+    if(roguePoisonTickFx){
+      this.pulseImageFx('vfx-rogue-poison-tick',v.container.x,v.container.y-22,{scale:.34,duration:440,alpha:.96,scaleTo:.44,depth:12});
     }
     // Electromancer's Lightning Bolt passive is a separate damage event immediately after
     // the physical hit. Give that proc its own explicit overhead-number presentation so it
