@@ -74,7 +74,7 @@ test('Bleed Imbue refreshes a single Bleed status rather than stacking independe
   assert.equal(bleeds[0].data.pct,.15);
 });
 
-test('Cover Fire distributes its three shots across all three living enemies before repeating anyone',()=>{
+test('Cover Fire distributes its four shots across all three living enemies before repeating anyone',()=>{
   const state=create3v3BattleState({teamA:['Archer','Warrior','Cleric'],teamB:['Warrior','Barbarian','Rogue'],matchId:'COVER-3'});
   for(const id of ['G0','G1','G2']) noDodge(state.units[id]);
   const sim=run(state,[
@@ -82,12 +82,12 @@ test('Cover Fire distributes its three shots across all three living enemies bef
     hold('H1'),hold('H2'),hold('G0'),hold('G1'),hold('G2')
   ],0x214,false);
   const attacks=sim.events.snapshot().filter(e=>e.type===EVENT_TYPE.ATTACK_START&&e.actorId==='H0');
-  assert.equal(attacks.length,3);
+  assert.equal(attacks.length,4);
   assert.equal(new Set(attacks.map(e=>e.targetId)).size,3);
   for(const id of ['G0','G1','G2']) assert.ok(findStatus(sim.state.units[id],'blind'),id);
 });
 
-test('Cover Fire with only two living enemies hits both before synchronized RNG assigns the third shot',()=>{
+test('Cover Fire with only two living enemies alternates the four shots after covering both',()=>{
   const state=create3v3BattleState({teamA:['Archer','Warrior','Cleric'],teamB:['Warrior','Barbarian','Rogue'],matchId:'COVER-2'});
   for(const id of ['G0','G1']) noDodge(state.units[id]);
   state.units.G2.stats.hp=0;
@@ -97,26 +97,27 @@ test('Cover Fire with only two living enemies hits both before synchronized RNG 
     hold('H1'),hold('H2'),hold('G0'),hold('G1')
   ],0x215,false);
   const targets=sim.events.snapshot().filter(e=>e.type===EVENT_TYPE.ATTACK_START&&e.actorId==='H0').map(e=>e.targetId);
-  assert.equal(targets.length,3);
+  assert.equal(targets.length,4);
   assert.equal(targets[0],'G0');
   assert.equal(new Set(targets.slice(0,2)).size,2);
   const counts=targets.reduce((m,id)=>(m[id]=(m[id]??0)+1,m),{});
-  assert.deepEqual(Object.values(counts).sort(),[1,2]);
+  assert.deepEqual(Object.values(counts).sort(),[2,2]);
   assert.ok(['G0','G1'].includes(targets[2]));
+  assert.ok(['G0','G1'].includes(targets[3]));
 });
 
-test('Shield Bash keeps 350% burst, 35% two-round Stun threat, and 20% physical brace as a pursuit style',()=>{
+test('Shield Bash keeps 400% burst, 35% two-round Stun threat, and 10% physical brace as a pursuit style',()=>{
   const bash=getAbility('Paladin','SHIELD_BASH');
-  assert.equal(bash.basicStyle?.damageMultiplier,3.5);
+  assert.equal(bash.basicStyle?.damageMultiplier,4);
   assert.equal(bash.basicStyle?.attacksSet,3);
   assert.equal(bash.basicStyle?.ordinaryAttackLimit,1);
   assert.equal(bash.basicStyle?.startupDelayCycles,1);
   assert.equal(bash.basicStyle?.onHit?.chance,.35);
   assert.equal(bash.basicStyle?.onHit?.duration,2);
-  assert.equal(bash.basicStyle?.selfOnFirstAttack?.data?.pct,.20);
+  assert.equal(bash.basicStyle?.selfOnFirstAttack?.data?.pct,.10);
 });
 
-test('Defensive Aura heals a randomized 40–60% max HP as focus-fire counterplay and reinforces DEF',()=>{
+test('Defensive Aura heals a randomized 35–55% max HP and reinforces DEF/RES',()=>{
   const state=createBattleState({matchId:'AURA40',units:[
     unit('Cleric','H0',SIDE.A,{row:3,col:3}),
     unit('Warrior','G0',SIDE.B,{row:3,col:5})
@@ -124,10 +125,11 @@ test('Defensive Aura heals a randomized 40–60% max HP as focus-fire counterpla
   const cleric=state.units.H0;
   cleric.stats.hp=Math.floor(cleric.stats.maxHP*.20);
   const before=cleric.stats.hp;
-  const minExpected=Math.floor(cleric.stats.maxHP*.40);
-  const maxExpected=Math.floor(cleric.stats.maxHP*.60);
+  const minExpected=Math.floor(cleric.stats.maxHP*.35);
+  const maxExpected=Math.floor(cleric.stats.maxHP*.55);
   const sim=run(state,[decl('Cleric','DEFENSIVE_AURA','H0',{type:TARGET_TYPE.SELF}),hold('G0')],0x216,false);
   const healed=sim.state.units.H0.stats.hp-before;
   assert.ok(healed>=minExpected && healed<=maxExpected,`heal ${healed} should be within ${minExpected}–${maxExpected}`);
   assert.ok(findStatus(sim.state.units.H0,'def_up'));
+  assert.ok(findStatus(sim.state.units.H0,'res_up'));
 });

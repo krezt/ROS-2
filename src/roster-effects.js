@@ -12,7 +12,7 @@ import { summonFaery } from './summons.js';
 const CONTROL = new Set(['stun','silence','taunt','berserk']);
 const RESISTIBLE_CONTROL = new Set(['stun','silence','taunt','berserk','root','suppression','spellbreak','blind']);
 const NEGATIVE = new Set(['stun','silence','taunt','berserk','root','suppression','spellbreak','poison','bleed','def_down','rend_def_down','atk_down','sdm_down','marked','blind']);
-const BENEFICIAL = new Set(['atk_up','sdm_up','def_up','guard','magic_shield','divine_shield','physical_shield','shield_redirect','shinobi_haste','invisible','premonition','arcane_echo','regen','shift','bloodlust','counterstance','flurry_style','poison_imbue','bleed_imbue','shadowstep_crit','ward','unstoppable','detection','warhorn_attacks_up','warhorn_movement_up']);
+const BENEFICIAL = new Set(['atk_up','sdm_up','def_up','res_up','dodge_up','guard','magic_shield','divine_shield','physical_shield','shield_redirect','shinobi_haste','invisible','premonition','arcane_echo','regen','shift','bloodlust','counterstance','flurry_style','poison_imbue','bleed_imbue','shadowstep_crit','ward','unstoppable','detection','warhorn_attacks_up','warhorn_movement_up','dodge_up']);
 function sync(sim){sim.state.round.eventSequence=sim.events.length;}
 function emit(sim,type,opts){const e=sim.events.emit(type,opts);sync(sim);return e;}
 function clamp(v,a,b){return Math.max(a,Math.min(b,v));}
@@ -73,6 +73,13 @@ function applyStatus(sim,actor,target,effect,cycle,parentEventId){
  }
  if(CONTROL.has(key)){applyControlEffect(sim,target.unitId,{type:key.toUpperCase(),sourceId:actor.unitId,duration:effect.duration,cycle,parentEventId});return true;}
  if(effect.stackMode==='STACK'){const existing=findStatus(target,key);const stacks=Math.min(5,(existing?.data?.stacks??0)+1);return Boolean(applyTimedStatus(sim,target.unitId,{key,duration:effect.duration,sourceId:actor.unitId,data:{...(effect.data??{}),stacks},stack:STATUS_STACK.REFRESH,cycle,parentEventId}));}
+ if(effect.stackMode==='STACK_SHIELD'){
+  const existing=findStatus(target,key);
+  const perStack=Math.max(0,Math.min(.95,Number(effect.data?.pct??.15)));
+  const maxStacks=Math.max(1,Math.trunc(effect.data?.maxStacks??2));
+  const stacks=Math.min(maxStacks,Math.max(0,Math.trunc(existing?.data?.stacks??0))+1);
+  return Boolean(applyTimedStatus(sim,target.unitId,{key,duration:effect.duration,sourceId:actor.unitId,data:{...(effect.data??{}),pctPerStack:perStack,stacks,pct:Math.min(.95,perStack*stacks)},stack:STATUS_STACK.REFRESH,cycle,parentEventId}));
+ }
  return Boolean(applyTimedStatus(sim,target.unitId,{key,duration:effect.duration,sourceId:actor.unitId,data:effect.data??{},stack:effect.stackMode==='MAX_DURATION'?STATUS_STACK.MAX_DURATION:STATUS_STACK.REFRESH,cycle,parentEventId}));
 }
 function cleanseOne(sim,actor,target,effect,cycle,parentEventId,abilityId=null){
@@ -122,7 +129,19 @@ export function resolveRosterEffects(sim,{actorId,ability,effects=ability.effect
   if(effect.type==='TEMP_MOVEMENT_MULTIPLIER'){const t=effect.to==='SELF'?actor:validity.target;if(t){const factor=Math.max(1,Number(effect.factor??1));const amount=Math.max(0,Math.floor(t.resources.movementMax*(factor-1)));t.resources.movementMax+=amount;t.resources.movementRemaining+=amount;applyTimedStatus(sim,t.unitId,{key:'movement_max_up',duration:effect.duration,sourceId:actor.unitId,data:{amount,source:'MULTIPLIER',factor,resource:'MOVEMENT_MAX'},cycle,parentEventId});}continue;}
   if(effect.type==='SUMMON_FAERY'){if(validity.target)results.push({summon:summonFaery(sim,{ownerId:actor.unitId,targetId:validity.target.unitId,cycle,parentEventId})});continue;}
   if(effect.type==='HYBRID_STORM'){const group=`${parentEventId??'ROOT'}:${ability.id}:STORM`;for(const t of unitsCanonical(sim)){if(t.lifeState!==LIFE_STATE.ALIVE)continue;if(t.side===actor.side)healTarget(sim,actor,t,{...effect.heal,simultaneousGroup:group},cycle,parentEventId,ability.id);else{lastDamage=applyDamage(sim,actor,t,{...scaledDamageEffect(effect.damage),damageType:DAMAGE_TYPE.MAGICAL,scalesWith:'SDM',dodgeable:false,simultaneousGroup:group},cycle,parentEventId,ability.id);if(t.lifeState===LIFE_STATE.ALIVE)applyStatus(sim,actor,t,{key:'stun',duration:1,chance:effect.stunChance},cycle,parentEventId);}}continue;}
-  if(effect.type==='CHAIN_LIGHTNING'){let current=validity.target;const hitIds=new Set();while(current&&current.lifeState===LIFE_STATE.ALIVE&&!hitIds.has(current.unitId)){hitIds.add(current.unitId);lastDamage=applyDamage(sim,actor,current,{...scaledDamageEffect(effect),damageType:DAMAGE_TYPE.MAGICAL,scalesWith:'SDM',dodgeable:false},cycle,parentEventId,ability.id);const candidates=unitsCanonical(sim).filter(u=>u.lifeState===LIFE_STATE.ALIVE&&!hitIds.has(u.unitId));if(!candidates.length||!sim.rng.chance(effect.bounceChance??.65,`CHAIN_BOUNCE:${actor.unitId}:${hitIds.size}`))break;current=candidates[sim.rng.nextInt(0,candidates.length-1,`CHAIN_TARGET:${actor.unitId}:${hitIds.size}`)];}continue;}
+  if(effect.type==='CHAIN_LIGHTNING'){
+   let current=validity.target,totalHits=0;
+   const hitCounts=new Map();
+   while(current&&current.lifeState===LIFE_STATE.ALIVE&&Math.max(0,hitCounts.get(current.unitId)??0)<2){
+    hitCounts.set(current.unitId,(hitCounts.get(current.unitId)??0)+1);totalHits+=1;
+    lastDamage=applyDamage(sim,actor,current,{...scaledDamageEffect(effect),damageType:DAMAGE_TYPE.MAGICAL,scalesWith:'SDM',dodgeable:false},cycle,parentEventId,ability.id);
+    const previousId=current.unitId;
+    const candidates=unitsCanonical(sim).filter(u=>u.lifeState===LIFE_STATE.ALIVE&&u.unitId!==previousId&&Math.max(0,hitCounts.get(u.unitId)??0)<2);
+    if(!candidates.length||!sim.rng.chance(effect.bounceChance??.65,`CHAIN_BOUNCE:${actor.unitId}:${totalHits}`))break;
+    current=candidates[sim.rng.nextInt(0,candidates.length-1,`CHAIN_TARGET:${actor.unitId}:${totalHits}`)];
+   }
+   continue;
+  }
  }
  return results;
 }

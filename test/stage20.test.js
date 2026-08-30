@@ -89,14 +89,14 @@ test('Barbarian Smashing Blows sacrifices two swings and supports per-hit 2-roun
   assert.equal(findStatus(sim.state.units.G0,'stun')?.duration,2);
 });
 
-test('Archer Cover Fire uses only three shots and successful hits Blind for the round',()=>{
+test('Archer Cover Fire uses four shots and successful hits Blind for the round',()=>{
   const state=pair('Archer','Warrior',{row:3,col:5},{row:3,col:3}); noDodge(state.units.G0);
   const sim=createRoundSimulation({state,declarations:[decl('Archer','COVER_FIRE'),hold('G0')],seed:4});
   createRosterCombatScheduler(sim,{countersEnabled:false});
-  assert.equal(sim.state.units.H0.resources.attacksRemaining,3);
+  assert.equal(sim.state.units.H0.resources.attacksRemaining,4);
   resolveBasicAttack(sim,'H0','G0',{cycle:0,ignoreAttackInterval:true});
   const blind=findStatus(sim.state.units.G0,'blind');
-  assert.equal(blind.duration,1); assert.equal(blind.data.whiffChance,.5);
+  assert.equal(blind.duration,1); assert.equal(blind.data.whiffChance,.4);
 });
 
 test('Archer Snipe uses three long-range shots with distance scaling and ordinary kiting',()=>{
@@ -212,12 +212,12 @@ test('FREE_COUNTERS Counterstance can counter with zero attacks without consumin
 });
 
 // --- Other redesigns ---------------------------------------------------------------
-test('Rogue Shadowstep gives three-round break-on-physical stealth and 250% crit multiplier',()=>{
+test('Rogue Shadowstep gives four-round break-on-physical stealth and 250% crit multiplier',()=>{
   const sim=run(pair('Rogue','Warrior'),[decl('Rogue','SHADOWSTEP','H0',{type:TARGET_TYPE.SELF}),hold('G0')],14,false);
   const invis=findStatus(sim.state.units.H0,'invisible');
-  assert.equal(invis?.duration,3);
+  assert.equal(invis?.duration,4);
   assert.equal(invis?.data.breakOnPhysicalAttack,true);
-  assert.equal(findStatus(sim.state.units.H0,'shadowstep_crit')?.duration,3);
+  assert.equal(findStatus(sim.state.units.H0,'shadowstep_crit')?.duration,4);
   assert.equal(findStatus(sim.state.units.H0,'shadowstep_crit')?.data.multiplier,2.5);
 });
 
@@ -228,12 +228,12 @@ test('Rogue Expose strips one defensive buff and Marks for current plus next rou
   assert.equal(findStatus(sim.state.units.G0,'marked')?.duration,2);
 });
 
-test('Paladin Shield Bash is a one-attempt pursuit style with 350% damage, Stun threat, and physical brace',()=>{
-  const a=getAbility('Paladin','SHIELD_BASH');assert.equal(a.actionKind,ACTION_KIND.BASIC_ATTACK);assert.equal(a.basicStyle.attacksSet,3);assert.equal(a.basicStyle.ordinaryAttackLimit,1);assert.equal(a.basicStyle.damageMultiplier,3.5);
-  assert.equal(a.basicStyle.startupDelayCycles,1);assert.equal(a.basicStyle.onHit.chance,.35);assert.equal(a.basicStyle.onHit.duration,2);assert.equal(a.basicStyle.selfOnFirstAttack.data.pct,.20);
+test('Paladin Shield Bash is a one-attempt pursuit style with 400% damage, Stun threat, and physical brace',()=>{
+  const a=getAbility('Paladin','SHIELD_BASH');assert.equal(a.actionKind,ACTION_KIND.BASIC_ATTACK);assert.equal(a.basicStyle.attacksSet,3);assert.equal(a.basicStyle.ordinaryAttackLimit,1);assert.equal(a.basicStyle.damageMultiplier,4);
+  assert.equal(a.basicStyle.startupDelayCycles,1);assert.equal(a.basicStyle.onHit.chance,.35);assert.equal(a.basicStyle.onHit.duration,2);assert.equal(a.basicStyle.selfOnFirstAttack.data.pct,.10);
   const state=pair('Paladin','Warrior',{row:3,col:1},{row:3,col:7});noDodge(state.units.G0);state.units.H0.weapon.attackBaseMin=100;state.units.H0.weapon.attackBaseMax=100;state.units.H0.stats.CRIT=0;
   const sim=run(state,[decl('Paladin','SHIELD_BASH'),hold('G0')],16,false);
-  assert.equal(findStatus(sim.state.units.H0,'physical_shield')?.data.pct,.2);
+  assert.equal(findStatus(sim.state.units.H0,'physical_shield')?.data.pct,.1);
   assert.ok(sim.events.snapshot().some(e=>e.type===EVENT_TYPE.DAMAGE&&e.actorId==='H0'&&e.payload.abilityId==='SHIELD_BASH'));
 });
 
@@ -328,15 +328,16 @@ test('batch harness runs repeated 3v3 matchups and aggregates results',()=>{
   assert.equal(batch.wins.A+batch.wins.B+batch.wins.DRAW+batch.wins.ACTIVE,2);
 });
 
-test('Cleric Defensive Aura is self-only, uses the larger heal, and buffs self defense',()=>{
+test('Cleric Defensive Aura heals 35–55% and buffs both physical and magical defense',()=>{
   const aura=getAbility('Cleric','DEFENSIVE_AURA');
   assert.equal(aura.targetType,TARGET_TYPE.SELF);
-  const heal=aura.effects.find(e=>e.type==='HEAL_PERCENT_ROLL'); assert.equal(heal.minPct,.40); assert.equal(heal.maxPct,.60);
+  const heal=aura.effects.find(e=>e.type==='HEAL_PERCENT_ROLL'); assert.equal(heal.minPct,.35); assert.equal(heal.maxPct,.55);
   const state=pair('Cleric','Warrior');state.units.H0.stats.hp-=300;
   const before=state.units.H0.stats.hp;
   const sim=run(state,[decl('Cleric','DEFENSIVE_AURA','H0',{type:TARGET_TYPE.SELF}),hold('G0')],31,false);
   assert.ok(sim.state.units.H0.stats.hp>before);
   assert.ok(findStatus(sim.state.units.H0,'def_up'));
+  assert.ok(findStatus(sim.state.units.H0,'res_up'));
 });
 
 test('Mage Arcane Ward is a 4-cycle cast and lasts five rounds',()=>{
@@ -344,11 +345,11 @@ test('Mage Arcane Ward is a 4-cycle cast and lasts five rounds',()=>{
   assert.equal(ward.completionDelayCycles,4);assert.equal(ward.effects.find(e=>e.key==='magic_shield').duration,5);
 });
 
-test('Barbarian Rampage applies a large two-stack ATK boost for 5 rounds and two-stack DEF penalty for 3',()=>{
+test('Barbarian Rampage applies a large two-stack ATK boost for 5 rounds and two-stack DEF penalty for 4',()=>{
   const sim=run(pair('Barbarian','Warrior'),[decl('Barbarian','RAMPAGE','H0',{type:TARGET_TYPE.SELF}),hold('G0')],32,false);
   const atk=findStatus(sim.state.units.H0,'atk_up'), def=findStatus(sim.state.units.H0,'def_down');
   assert.equal(atk.duration,5);assert.equal(atk.data.stacks,2);
-  assert.equal(def.duration,3);assert.equal(def.data.stacks,2);
+  assert.equal(def.duration,4);assert.equal(def.data.stacks,2);
 });
 
 test('Bloodlust incoming damage multiplier is applied by actual basic combat math',()=>{

@@ -1,9 +1,9 @@
 {
   "name": "ros2-simulation-core",
-  "version": "0.25.30-stage25ad-rogue-vfx-judgment-cleric-proc",
+  "version": "0.25.31-stage25ae-balance-overhaul",
   "private": true,
   "type": "module",
-  "description": "Realm of Shinobi 2.0 deterministic combat \u2014 Stage 25AB proc tuning, Rend/Poison balance, Shield Bash tooltip correction",
+  "description": "Realm of Shinobi 2.0 deterministic combat \u2014 Stage 25AE balance overhaul",
   "scripts": {
     "test": "node --test",
     "demo": "node demo/stage23-demo.js",

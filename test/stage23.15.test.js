@@ -13,7 +13,7 @@ test('Stage 23.15 restores Barbarian range 3 and reduces Mystic counter kite to 
 
 test('Stage 23.15 proc tuning emphasizes support/caster identities without uncapping multi-swing procs',()=>{
   const proc=id=>getArchetype(id).abilities.find(a=>a.id.endsWith('_ATTACK')).basicProc;
-  assert.deepEqual({chance:proc('Cleric').chance,min:proc('Cleric').min,max:proc('Cleric').max}, {chance:.15,min:85,max:213});
+  assert.deepEqual({chance:proc('Cleric').chance,min:proc('Cleric').min,max:proc('Cleric').max}, {chance:.15,min:85,max:215});
   assert.equal(proc('Mage').chance,.06);
   assert.equal(proc('Mage').key,'stun');
   assert.equal(proc('Monk').chance,.20);

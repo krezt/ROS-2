@@ -15,7 +15,7 @@ function decl(archetypeId,abilityId,actorId,target){return createRosterAbilityDe
 function run(state,declarations,seed=1){const sim=createRoundSimulation({state,declarations,seed});createRosterCombatScheduler(sim,{countersEnabled:false}).runUntilCombatSettled({maxCycles:500});return sim;}
 
 test('Stage25N adds 400 base HP to every playable champion',()=>{
-  const expected={Warrior:2126,Barbarian:1997,Rogue:1700,Cleric:1784,Mage:1700,Paladin:1827,Archer:1700,Monk:1614,Necromancer:1700,Mystic:1571,Shinobi:1658,Electromancer:1614};
+  const expected={Warrior:2450,Barbarian:2250,Rogue:1850,Cleric:1900,Mage:1750,Paladin:1900,Archer:1800,Monk:1800,Necromancer:1800,Mystic:1700,Shinobi:1750,Electromancer:1750};
   for(const [id,hp] of Object.entries(expected))assert.equal(getArchetype(id).stats.maxHP,hp,id);
 });
 

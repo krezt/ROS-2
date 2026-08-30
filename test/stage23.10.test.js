@@ -57,8 +57,8 @@ test('active roster no longer uses generic Guard statuses',()=>{
     for(const a of c.abilities) for(const e of a.effects??[]) assert.notEqual(e.key,'guard',`${c.id}/${a.id}`);
   }
   assert.equal(getAbility('Warrior','SHIELDWALL').effects[0].key,'physical_shield');
-  assert.equal(getAbility('Warrior','DIG_IN').effects.find(e=>e.type==='APPLY_STATUS'&&e.key==='physical_shield')?.data.pct,.20);
-  assert.equal(getAbility('Paladin','SHIELD_BASH').basicStyle?.selfOnFirstAttack?.data?.pct,.20);
+  assert.equal(getAbility('Warrior','DIG_IN').effects.find(e=>e.type==='APPLY_STATUS'&&e.key==='physical_shield')?.data.pct,.15);
+  assert.equal(getAbility('Paladin','SHIELD_BASH').basicStyle?.selfOnFirstAttack?.data?.pct,.10);
 });
 
 test('action selector summaries are intentionally one-line and glanceable',()=>{

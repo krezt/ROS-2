@@ -286,7 +286,7 @@ export function effectiveCritMultiplier(unit, explicitMultiplier = null) {
 export function blindWhiffChance(unit) {
   const blind = findStatus(unit, 'blind');
   if (!blind) return 0;
-  return Math.max(0, Math.min(1, Number(blind.data?.whiffChance ?? 0.50)));
+  return Math.max(0, Math.min(1, Number(blind.data?.whiffChance ?? 0.40)));
 }
 
 
@@ -448,6 +448,11 @@ export function applyBasicHitOverrides(simulation, {
     if (basicProc.type === 'STATUS') {
       emitStatusApply(simulation, actorId, targetId, basicProc.key, basicProc.duration ?? 1, { ...(basicProc.data ?? {}), proc:true, procLabel:basicProc.label ?? basicProc.key }, parentEventId, cycle);
       applied.push(basicProc.key);
+      for (const extra of basicProc.additionalStatuses ?? []) {
+        if (!extra?.key) continue;
+        emitStatusApply(simulation, actorId, targetId, extra.key, extra.duration ?? basicProc.duration ?? 1, { ...(extra.data ?? {}), proc:true, procLabel:basicProc.label ?? basicProc.key }, parentEventId, cycle);
+        applied.push(extra.key);
+      }
     } else if (basicProc.type === 'STATUS_SELF') {
       emitStatusApply(simulation, actorId, actorId, basicProc.key, basicProc.duration ?? 1, { ...(basicProc.data ?? {}), proc:true, procLabel:basicProc.label ?? basicProc.key }, parentEventId, cycle);
       applied.push(basicProc.key);
@@ -523,7 +528,7 @@ export function applyBasicHitOverrides(simulation, {
 }
 
 export function defensiveBuffKeys() {
-  return new Set(['def_up','guard','magic_shield','divine_shield','physical_shield','shield_redirect','shift','counterstance']);
+  return new Set(['def_up','res_up','dodge_up','guard','magic_shield','divine_shield','physical_shield','shield_redirect','shift','counterstance']);
 }
 
 export function stripOneDefensiveBuff(simulation, actorId, targetId, { cycle, parentEventId = null } = {}) {

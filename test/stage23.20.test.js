@@ -20,12 +20,12 @@ test('Stage 23.20 Archer range and Snipe tuning match the latest balance ruling'
   assert.equal(archer.weapon.weaponRange,6);
   assert.equal(archer.weapon.preferredRange,6);
   assert.equal(snipe.basicStyle.attackRangeOverride,8);
-  assert.equal(snipe.basicStyle.damageMultiplier,2.2275);
+  assert.equal(snipe.basicStyle.damageMultiplier,2.25);
   assert.equal(snipe.basicStyle.distanceDamageBonusPerSquare,.05);
 });
 
-test('current survivability polish raises every champion HP baseline by a further 20%',()=>{
-  const expected={Warrior:2126,Barbarian:1997,Rogue:1700,Cleric:1784,Mage:1700,Paladin:1827,Archer:1700,Monk:1614,Necromancer:1700,Mystic:1571,Shinobi:1658,Electromancer:1614};
+test('current survivability baselines match the latest roster values',()=>{
+  const expected={Warrior:2450,Barbarian:2250,Rogue:1850,Cleric:1900,Mage:1750,Paladin:1900,Archer:1800,Monk:1800,Necromancer:1800,Mystic:1700,Shinobi:1750,Electromancer:1750};
   for(const [id,hp] of Object.entries(expected)) assert.equal(getArchetype(id).stats.maxHP,hp,id);
 });
 

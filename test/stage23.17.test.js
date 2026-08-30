@@ -13,21 +13,21 @@ function effect(classId, abilityId, type){
 }
 
 test('Stage 23.17 direct-damage spell pass raises the intended raw damage bands',()=>{
-  assert.deepEqual([effect('Barbarian','WAR_CRY','DAMAGE').min,effect('Barbarian','WAR_CRY','DAMAGE').max],[70,90]);
+  assert.deepEqual([effect('Barbarian','WAR_CRY','DAMAGE').min,effect('Barbarian','WAR_CRY','DAMAGE').max],[75,100]);
   assert.deepEqual([effect('Cleric','PIERCING_LIGHT','AOE_DAMAGE').min,effect('Cleric','PIERCING_LIGHT','AOE_DAMAGE').max],[150,250]);
   assert.deepEqual([effect('Mage','METEOR','DAMAGE').min,effect('Mage','METEOR','DAMAGE').max],[130,190]);
-  assert.deepEqual([effect('Mage','FIREBALL','AOE_DAMAGE').min,effect('Mage','FIREBALL','AOE_DAMAGE').max],[200,350]);
+  assert.deepEqual([effect('Mage','FIREBALL','AOE_DAMAGE').min,effect('Mage','FIREBALL','AOE_DAMAGE').max],[200,400]);
   assert.deepEqual([effect('Paladin','JUDGMENT','CONDITIONAL_DAMAGE').min,effect('Paladin','JUDGMENT','CONDITIONAL_DAMAGE').max],[200,300]);
   assert.deepEqual([effect('Necromancer','LIFE_DRAIN','LIFE_DRAIN').min,effect('Necromancer','LIFE_DRAIN','LIFE_DRAIN').max],[150,300]);
   assert.deepEqual([effect('Necromancer','POISON_BOLT','DAMAGE').min,effect('Necromancer','POISON_BOLT','DAMAGE').max],[150,200]);
   const storm=effect('Electromancer','ELECTRICAL_STORM','HYBRID_STORM');
   assert.deepEqual([storm.damage.min,storm.damage.max],[25,125]);
-  assert.deepEqual([effect('Electromancer','CHAIN_LIGHTNING','CHAIN_LIGHTNING').min,effect('Electromancer','CHAIN_LIGHTNING','CHAIN_LIGHTNING').max],[190,290]);
+  assert.deepEqual([effect('Electromancer','CHAIN_LIGHTNING','CHAIN_LIGHTNING').min,effect('Electromancer','CHAIN_LIGHTNING','CHAIN_LIGHTNING').max],[200,300]);
 });
 
 test('percentage and control spells retain their rules while the requested Plague tuning is applied',()=>{
   assert.equal(effect('Necromancer','DEATH_TOUCH','CURRENT_HP_DAMAGE').fraction,.50);
-  assert.deepEqual([effect('Necromancer','PLAGUE','POISON_FLAT_ROLL').min,effect('Necromancer','PLAGUE','POISON_FLAT_ROLL').max],[100,160]);
+  assert.deepEqual([effect('Necromancer','PLAGUE','POISON_FLAT_ROLL').min,effect('Necromancer','PLAGUE','POISON_FLAT_ROLL').max],[100,180]);
   assert.equal(effect('Mystic','MENTAL_BREAKDOWN','APPLY_STATUS').key,'spellbreak');
 });
 
@@ -35,7 +35,7 @@ test('ability details automatically expose the new raw spell values',()=>{
   const mage={...structuredClone({stats:ROSTER.Mage.stats,statuses:[]})};
   const fireball=ROSTER.Mage.abilities.find(a=>a.id==='FIREBALL');
   const detail=abilityDetailModel(mage,fireball);
-  assert.ok(detail.lines.some(line=>line.includes('200–350 magical damage')));
+  assert.ok(detail.lines.some(line=>line.includes('200–400 magical damage')));
 });
 
 test('1P roster lab accepts any six unique roster archetypes and rejects duplicates',()=>{

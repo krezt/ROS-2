@@ -9,9 +9,9 @@ test('Power Surge buffs both ATK and SDM for three rounds',()=>{
   assert.ok(statuses.every(e=>e.duration===3&&e.to==='ALL_ALLIES'));
 });
 
-test('Volley receives the requested additional 20% damage increase',()=>{
+test('Volley uses the latest 150–350 damage band',()=>{
   const e=getAbility('Archer','VOLLEY').effects[0];
-  assert.deepEqual([e.min,e.max],[132,240]);
+  assert.deepEqual([e.min,e.max],[150,350]);
 });
 
 test('Rend strips twenty-five percent DEF per successful hit and retains three-round stacking duration',()=>{
@@ -34,5 +34,5 @@ test('Guardian Angel heals 100-175 and Divine Shield lasts only the current roun
   const s=a.effects.find(e=>e.type==='APPLY_STATUS'&&e.key==='divine_shield');
   assert.deepEqual([h.min,h.max],[100,175]);
   assert.equal(s.duration,1);
-  assert.equal(s.data.pct,.60);
+  assert.equal(s.data.pct,.50);
 });

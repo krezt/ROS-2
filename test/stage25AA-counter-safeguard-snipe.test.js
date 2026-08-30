@@ -89,6 +89,6 @@ test('Stage25AA zero-cost Counterstance pursuit still works with zero ordinary a
 test('Stage25AA Snipe base damage multiplier includes the latest 10% buff and range increase',()=>{
   const snipe=getAbility('Archer','SNIPE');
   assert.equal(snipe.basicStyle.attackRangeOverride,8);
-  assert.equal(snipe.basicStyle.damageMultiplier,2.2275);
+  assert.equal(snipe.basicStyle.damageMultiplier,2.25);
   assert.equal(snipe.basicStyle.distanceDamageBonusPerSquare,.05);
 });

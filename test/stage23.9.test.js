@@ -81,11 +81,11 @@ test('ability detail panel reports current direct scaling without coefficient la
   const mage=unit('Mage');
   const fireball=ROSTER.Mage.abilities.find(a=>a.id==='FIREBALL');
   const d=abilityDetailModel(mage,fireball);
-  assert.ok(d.lines.some(x=>x.includes('200–350 magical damage')));
+  assert.ok(d.lines.some(x=>x.includes('200–400 magical damage')));
   assert.ok(!`${d.note} ${d.lines.join(' ')}`.toLowerCase().includes('coefficient'));
   mage.statuses=[{key:'sdm_up',duration:2,sourceId:'H0',data:{stacks:1}}];
   const buffed=abilityDetailModel(mage,fireball);
-  assert.ok(buffed.lines.some(x=>x.includes('300–525 magical damage')));
+  assert.ok(buffed.lines.some(x=>x.includes('300–600 magical damage')));
 });
 
 test('Stage 23.9 removes inspection hint and adds persistent battlefield-adjacent ability information',()=>{

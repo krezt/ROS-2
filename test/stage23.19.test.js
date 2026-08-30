@@ -42,12 +42,12 @@ test('Stun blocks proactive control but allows an in-range reflex counter with z
   void scheduler;
 });
 
-test('Snipe has Range 8, 222.75% base damage, and +5% damage per actual square of separation',()=>{
-  const s=getAbility('Archer','SNIPE');assert.equal(s.basicStyle.attackRangeOverride,8);assert.equal(s.basicStyle.damageMultiplier,2.2275);assert.equal(s.basicStyle.distanceDamageBonusPerSquare,.05);
+test('Snipe has Range 8, 225% base damage, and +5% damage per actual square of separation',()=>{
+  const s=getAbility('Archer','SNIPE');assert.equal(s.basicStyle.attackRangeOverride,8);assert.equal(s.basicStyle.damageMultiplier,2.25);assert.equal(s.basicStyle.distanceDamageBonusPerSquare,.05);
   const state=pair('Archer','Warrior',{row:5,col:2},{row:5,col:9});state.units.H0.weapon.attackBaseMin=100;state.units.H0.weapon.attackBaseMax=100;state.units.H0.stats.CRIT=0;state.units.H0.weapon.critBonus=0;state.units.G0.stats.DEF=0;state.units.G0.stats.QKN=-1000;state.units.G0.stats.hp=9999;state.units.G0.stats.maxHP=9999;
   const sim=createRoundSimulation({state,declarations:[decl('Archer','SNIPE'),hold('G0')],seed:4});createRosterCombatScheduler(sim,{countersEnabled:false});sim.state.units.H0.resources.attacksRemaining=1;
   const hit=resolveBasicAttack(sim,'H0','G0',{cycle:0,ignoreAttackInterval:true,rangeOverride:8});
-  assert.ok(hit.dealt>=299&&hit.dealt<=301);
+  assert.ok(hit.dealt>=303&&hit.dealt<=304);
 });
 
 test('Warhorn is a 2-cycle team buff granting +1 SW and +2 Movement for 4 rounds',()=>{
@@ -87,7 +87,7 @@ test('Necromancer and Barbarian tuning matches Stage 23.19',()=>{
   const drip=getAbility('Necromancer','NECRO_ATTACK').basicProc;assert.deepEqual([drip.min,drip.max],[75,200]);
   assert.equal(getArchetype('Barbarian').combat.movementMax,15);assert.equal(getArchetype('Barbarian').combat.attacksMax,7);
   assert.equal(getAbility('Shinobi','BLEED_STRIKE').effects[0].duration,5);
-  const aura=getAbility('Cleric','DEFENSIVE_AURA').effects[0];assert.equal(aura.type,'HEAL_PERCENT_ROLL');assert.deepEqual([aura.minPct,aura.maxPct],[.40,.60]);
+  const aura=getAbility('Cleric','DEFENSIVE_AURA').effects[0];assert.equal(aura.type,'HEAL_PERCENT_ROLL');assert.deepEqual([aura.minPct,aura.maxPct],[.35,.55]);
 });
 
 test('resisted Spellbreak leaves the already-charging spell intact and Plague still resolves',()=>{

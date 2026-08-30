@@ -40,7 +40,7 @@ function noDodge(u){u.stats.QKN=-1000;u.stats.DEF=0;}
 // Rogue combo ----------------------------------------------------------------------
 test('Shadowstep stealth breaks on the Rogue first physical basic attack but the crit-amplifier remains',()=>{
   const setup=run(pair('Rogue','Warrior',{row:3,col:4},{row:3,col:5}),[decl('Rogue','SHADOWSTEP','H0',{type:TARGET_TYPE.SELF}),hold('G0')],1,false);
-  assert.equal(findStatus(setup.state.units.H0,'invisible')?.duration,3);
+  assert.equal(findStatus(setup.state.units.H0,'invisible')?.duration,4);
   setup.state.units.H0.resources.attacksRemaining=1;
   noDodge(setup.state.units.G0);
   resolveBasicAttack(setup,'H0','G0',{cycle:setup.state.round.initiativeCycle,ignoreAttackInterval:true});

@@ -74,7 +74,10 @@ export function isWithinWeaponRange(actor, target) {
 }
 
 export function getPhysicalDodgeChance(defender, rules = BASIC_COMBAT_RULES) {
-  return clamp(rules.dodgeBase + (defender.stats.QKN * rules.dodgeQknFactor), 0, rules.dodgeCap);
+  const dodgeBuff = Math.max(0, Number(findStatus(defender, 'dodge_up')?.data?.bonus ?? 0));
+  const raw = clamp(rules.dodgeBase + (defender.stats.QKN * rules.dodgeQknFactor) + dodgeBuff, 0, rules.dodgeCap);
+  // Physical dodge is expressed as a whole percentage, always rounded upward.
+  return Math.min(rules.dodgeCap, Math.ceil((raw * 100) - 1e-12) / 100);
 }
 
 export function mitigationFraction(defender, damageType, defensePenetration = 0, rules = BASIC_COMBAT_RULES) {

@@ -27,11 +27,11 @@ const BENEFICIAL_STATUS_VALUE = Object.freeze({
   invisible: 75, shift: 75, counterstance: 85, flurry_style: 110,
   arcane_echo: 90, regen: 55, guard: 45, shield_redirect: 100,
   divine_shield: 85, physical_shield: 75, magic_shield: 75,
-  atk_up: 55, sdm_up: 55, def_up: 50, premonition: 45,
+  atk_up: 55, sdm_up: 55, def_up: 50, res_up: 50, dodge_up: 50, premonition: 45,
   bloodlust: 70, poison_imbue: 65, bleed_imbue: 65,
   shadowstep_crit: 55, movement_max_up: 65, attacks_max_up: 85, ward: 90, unstoppable: 100, detection: 55
 });
-const DEFENSIVE_KEYS = new Set(['guard','shield_redirect','divine_shield','physical_shield','magic_shield','def_up','shift','invisible']);
+const DEFENSIVE_KEYS = new Set(['guard','shield_redirect','divine_shield','physical_shield','magic_shield','def_up','res_up','dodge_up','shift','invisible']);
 const NEGATIVE_KEYS = new Set(['stun','silence','taunt','berserk','root','suppression','spellbreak','poison','bleed','def_down','rend_def_down','marked','blind']);
 const OFFENSIVE_EFFECTS = new Set(['DAMAGE','CONDITIONAL_DAMAGE','CURRENT_HP_DAMAGE','LIFE_DRAIN','AOE_DAMAGE','MULTI_STRIKE','CHAIN_LIGHTNING','WEAPON_STRIKE','BACKSTAB_STRIKE','DETONATE_POISON','DETONATE_POISON_AND_RESEED','POISON_FLAT_ROLL','POISON_FROM_LAST_DAMAGE','HYBRID_STORM']);
 

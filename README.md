@@ -1,17 +1,22 @@
-# Realm of Shinobi 2.0 — Stage 25AB
+# Realm of Shinobi 2.0 — Stage 25AE
 
-Stage 25AB preserves the Stage 25Z tactical 1P AI, mobile Combat Log collapse, and Stage 25AA Counterstance/pathfinding safeguards while applying the current proc and ability tuning. Multiplayer rules/network flow are unchanged.
+Stage 25AE preserves the Stage 25AD Rogue VFX update, Stage 25Z Tactical AI, Stage 25AA counter safeguards, and the existing multiplayer/ranked architecture while applying the latest roster-wide balance pass.
 
-Stage 25AD adds the Rogue ability VFX update (cleanly cut from the new Rogue 4×4 sheet), buffs Paladin Judgment's afflicted multiplier to 350%, and reduces Cleric Prayer Mend proc healing by 15%.
-
-- 1P uses **TACTICAL** AI with threat recognition, focus fire, combo sequencing/interruption, sustain denial, reactive defense, meaningful Dispel/Cleanse decisions, and tightly gated Mystic Premonition.
-- Counterstance uses path-aware pursuit eligibility and a strict post-pursuit range guard so blocked counters cancel cleanly instead of hanging a round.
-- Archer Snipe remains **Range 7** and **202.5% base damage** per shot.
-- Marked remains **+65% incoming damage**.
-- Rogue remains at **17 Movement** with a **2.5× Shadowstep crit multiplier**; Poison Imbue now adds Poison equal to **75% of successful-hit damage**.
-- Barbarian weapon damage remains **77–108**; Smashing Blows now has **15% Stun per successful hit**, and Rend stacks a **25% multiplicative DEF reduction per successful hit** for 3 rounds.
-- Basic passive proc chances are now explicit per successful hit: Cleric **15%**, Necromancer **15%**, Mystic **15%**, Electromancer **30%**, Monk **20%**, Paladin **25%**, Mage **6%**; the existing **3 procs/round cap** remains.
-- Paladin Shield Bash remains one **300% proactive bash** with two attack resources reserved for normal counters; its tooltip now reports this correctly instead of displaying three proactive swings.
+- New base HP: Warrior **2450**, Barbarian **2250**, Rogue **1850**, Cleric **1900**, Mage **1750**, Paladin **1900**, Archer **1800**, Monk **1800**, Necromancer **1800**, Mystic **1700**, Shinobi **1750**, Electromancer **1750**.
+- Physical dodge now rounds **up to the nearest whole percentage point**. Blind physical whiff chance is **40%** globally.
+- Warrior: Shieldwall physical shield **10%**; Dig In physical shield **15% for 2 rounds**, stackable to two layers, while retaining its 20% max-HP heal/DEF Up.
+- Barbarian: weapon **80–110**; Bloodlust suppresses counters so SW stays committed to the chosen target; Smashing Blows = **5 swings at 125%**, **10% Stun/hit**; Rend = **4 swings at 125%** with 25% multiplicative DEF shred/hit; War Cry **75–100**; Rampage self DEF Down lasts **4 rounds**.
+- Rogue: total basic crit **15%**; Shadowstep lasts **4 rounds**; Smoke Bomb heals **15–25% max HP** and blinds enemies at the global 40% whiff rate.
+- Cleric: Prayer Mend **85–215** at 15%/successful hit; Defensive Aura heals **35–55% max HP** and grants DEF Up + RES Up for **3 rounds**; Guardian Angel Divine Shield **50%**.
+- Mage: Arcane Ward Magic Shield **30%**; Fireball **200–400** magical in its 5×5 true-friendly-fire area.
+- Paladin: Resolve lasts **3 rounds**; Shield Bash is one **400% proactive bash** with a **10% physical shield** and two counter resources; Divine Shield **50%**. Judgment remains **350% total damage against afflicted targets** from Stage 25AD.
+- Archer: **6 SW**, weapon **80–150**, normal Attack = **100% weapon damage**; Ranger's Focus takes **2 cycles** and initially heals **10% max HP**; Cover Fire = **4 shots**; Volley = **150–350** at **4 cycles**; Snipe = **225% base weapon damage**, Range 8, +5% damage per square.
+- Monk: Second Wind restores **20% max HP per round for 3 rounds** and grants DEF Up for 3 rounds in addition to its cleanse/hard-control bypass.
+- Necromancer: Poison Bolt gets **+25% ability crit** and adds Poison equal to **100% of actual damage dealt**; Plague applies **100–180 Poison** per enemy.
+- Mystic: Guard Falter is **15% per successful basic hit** and now applies both DEF Down and RES Down for **3 rounds**; Premonition additionally grants the whole team **+5 percentage points physical dodge for 3 rounds**.
+- Electromancer: weapon **20–40**; Lightning Bolt proc retains 30% proc chance and now has **25% RES penetration** with **15% total crit**; Chain Lightning is **200–300**, and a champion may be hit up to **twice per chain** but never on two consecutive links.
+- Basic passive proc rolls remain **uncapped per round**.
+- Stage 25AD Rogue ability VFX remain integrated and cleanly cut; all earlier presentation/network functionality is preserved.
 
 Stage 25V preserves the Stage 25U durable Ranked/Supabase persistence system and Stage 25T portrait draft polish, while adding startup/lifecycle and Monk quality-of-life changes.
 

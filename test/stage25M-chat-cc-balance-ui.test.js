@@ -25,7 +25,7 @@ test('Stage25M requested balance tuning is represented in roster data',()=>{
   const rogue=getArchetype('Rogue');assert.deepEqual([rogue.weapon.attackBaseMin,rogue.weapon.attackBaseMax],[55,100]);
   assert.equal(getAbility('Rogue','EXPOSE').completionDelayCycles,3);
   assert.equal(getAbility('Rogue','POISON_DAGGER').effects[0].duration,4);
-  assert.equal(getAbility('Warrior','DIG_IN').effects.find(e=>e.type==='APPLY_STATUS'&&e.key==='physical_shield')?.data?.pct,.20);
+  assert.equal(getAbility('Warrior','DIG_IN').effects.find(e=>e.type==='APPLY_STATUS'&&e.key==='physical_shield')?.data?.pct,.15);
 });
 
 test('failed chance-based Mystic CC emits STATUS_RESIST BLOCK feedback',()=>{

@@ -44,13 +44,13 @@ test('Stage25W maps the approved Monk VFX to Palm Hits, Flurry, Chi Wave, Counte
   assert.match(scene,/spawnMysticSignatureFx[\s\S]*spawnMonkSignatureFx[\s\S]*spawnMageSignatureFx/);
 });
 
-test('Stage25W Second Wind restores 15% max HP per round for 3 rounds',()=>{
+test('Stage25W Second Wind restores 20% max HP per round for 3 rounds',()=>{
   const ability=getAbility('Monk','SECOND_WIND');
   const regen=ability.effects.find(e=>e.type==='APPLY_STATUS'&&e.key==='regen');
   assert.equal(regen.duration,3);
-  assert.equal(regen.data?.pct,.15);
+  assert.equal(regen.data?.pct,.20);
   const monk=createRosterUnit({archetypeId:'Monk',unitId:'H0',side:SIDE.A,draftSlot:0,position:{row:2,col:2}});
   const detail=abilityDetailModel(monk,ability);
-  assert.ok(detail.lines.includes('Regen 242 HP/round (15% max HP) • 3 rounds'));
-  assert.match(detail.note,/15%.*242 HP\/round/);
+  assert.ok(detail.lines.includes('Regen 360 HP/round (20% max HP) • 3 rounds'));
+  assert.match(detail.note,/20%.*360 HP\/round/);
 });

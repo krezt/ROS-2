@@ -71,7 +71,7 @@ test('Berserk-forced Basic Attacks do not inherit interrupted spell names',()=>{
   assert.ok(hits.length>0);assert.ok(hits.every(e=>e.payload?.abilityId==='SHINOBI_ATTACK'));assert.ok(hits.every(e=>e.payload?.abilityId!=='INVISIBILITY'));
 });
 
-test('Shield Bash pursues from distance, then makes one 300% attack attempt and braces',()=>{
+test('Shield Bash pursues from distance, then makes one 400% attack attempt and braces',()=>{
   const state=pair('Paladin','Warrior',{row:5,col:2},{row:5,col:10});
   state.units.G0.stats.QKN=-1000;state.units.G0.stats.DEF=0;state.units.G0.stats.hp=9999;state.units.G0.stats.maxHP=9999;
   state.units.H0.stats.CRIT=0;state.units.H0.weapon.attackBaseMin=100;state.units.H0.weapon.attackBaseMax=100;
@@ -79,15 +79,15 @@ test('Shield Bash pursues from distance, then makes one 300% attack attempt and 
   const moves=sim.events.snapshot().filter(e=>e.type===EVENT_TYPE.MOVE&&e.actorId==='H0');
   const dmg=sim.events.snapshot().find(e=>e.type===EVENT_TYPE.DAMAGE&&e.actorId==='H0'&&e.payload?.abilityId==='SHIELD_BASH');
   assert.ok(moves.length>=1);assert.ok(dmg);assert.ok(dmg.payload.amount>=225); // 300 raw through baseline 25% ARM
-  assert.equal(findStatus(sim.state.units.H0,'physical_shield')?.data?.pct,.20);
+  assert.equal(findStatus(sim.state.units.H0,'physical_shield')?.data?.pct,.10);
 });
 
-test('Volley is buffed by 20% to a 132–240 physical 5x5 AoE',()=>{
-  const volley=getAbility('Archer','VOLLEY'),effect=volley.effects[0];assert.equal(effect.min,132);assert.equal(effect.max,240);assert.equal(volley.area.shape,'SQUARE_5X5');
+test('Volley is a 150–350 physical 5x5 AoE',()=>{
+  const volley=getAbility('Archer','VOLLEY'),effect=volley.effects[0];assert.equal(effect.min,150);assert.equal(effect.max,350);assert.equal(volley.area.shape,'SQUARE_5X5');
 });
 
 test('all champion max HP values reflect the later Stage 23.20 survivability pass',()=>{
-  const expected={Warrior:2126,Barbarian:1997,Rogue:1700,Cleric:1784,Mage:1700,Paladin:1827,Archer:1700,Monk:1614,Necromancer:1700,Mystic:1571,Shinobi:1658,Electromancer:1614};
+  const expected={Warrior:2450,Barbarian:2250,Rogue:1850,Cleric:1900,Mage:1750,Paladin:1900,Archer:1800,Monk:1800,Necromancer:1800,Mystic:1700,Shinobi:1750,Electromancer:1750};
   for(const [id,hp] of Object.entries(expected))assert.equal(getArchetype(id).stats.maxHP,hp,id);
 });
 

@@ -95,9 +95,9 @@ test('Stage25V Counterstance movement bonus expires with the stance',()=>{
   assert.equal(findStatus(sim.state.units.H0,'counterstance_movement_up'),null);
 });
 
-test('Stage25V Second Wind ability details state its actual per-round Regen amount',()=>{
+test('Stage25V Second Wind ability details state its latest per-round Regen amount',()=>{
   const monk=unit('Monk','H0',SIDE.A,{row:2,col:2});
   const detail=abilityDetailModel(monk,getAbility('Monk','SECOND_WIND'));
-  assert.ok(detail.lines.includes('Regen 242 HP/round (15% max HP) • 3 rounds'));
-  assert.match(detail.note,/242 HP\/round/);
+  assert.ok(detail.lines.includes('Regen 360 HP/round (20% max HP) • 3 rounds'));
+  assert.match(detail.note,/360 HP\/round/);
 });

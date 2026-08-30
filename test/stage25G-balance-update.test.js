@@ -23,7 +23,7 @@ test('Stage 25G roster balance values match the requested update',()=>{
   assert.equal(getArchetype('Paladin').combat.movementMax,15);
 
   const archer=getArchetype('Archer');
-  assert.deepEqual([archer.weapon.attackBaseMin,archer.weapon.attackBaseMax],[69,106]);
+  assert.deepEqual([archer.weapon.attackBaseMin,archer.weapon.attackBaseMax],[80,150]);
 
   const spellbreak=getAbility('Mystic','MENTAL_BREAKDOWN');
   assert.equal(spellbreak.label,'Spellbreak');
@@ -32,7 +32,7 @@ test('Stage 25G roster balance values match the requested update',()=>{
   const necroProc=getAbility('Necromancer','NECRO_ATTACK').basicProc;
   assert.deepEqual([necroProc.min,necroProc.max],[75,200]);
   const clericProc=getAbility('Cleric','CLERIC_ATTACK').basicProc;
-  assert.deepEqual([clericProc.min,clericProc.max],[85,213]);
+  assert.deepEqual([clericProc.min,clericProc.max],[85,215]);
 
   const drain=getAbility('Necromancer','LIFE_DRAIN').effects[0];
   assert.deepEqual([drain.min,drain.max],[150,300]);
@@ -40,7 +40,7 @@ test('Stage 25G roster balance values match the requested update',()=>{
   assert.deepEqual([bolt.min,bolt.max],[150,200]);
 
   const aura=getAbility('Cleric','DEFENSIVE_AURA').effects.find(e=>e.type==='HEAL_PERCENT_ROLL');
-  assert.deepEqual([aura.minPct,aura.maxPct],[.40,.60]);
+  assert.deepEqual([aura.minPct,aura.maxPct],[.35,.55]);
 
   const judgment=getAbility('Paladin','JUDGMENT').effects[0];
   assert.deepEqual([judgment.min,judgment.max],[200,300]);

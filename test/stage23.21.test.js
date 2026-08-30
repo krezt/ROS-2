@@ -37,10 +37,10 @@ test('Shieldwall never redirects an attacker own friendly-fire attack back onto 
   assert.equal(out.targetId,'H1');
 });
 
-test('Fireball is a true-friendly-fire 5x5 AoE with 200-350 raw damage',()=>{
+test('Fireball is a true-friendly-fire 5x5 AoE with 200-400 raw damage',()=>{
   const f=getAbility('Mage','FIREBALL');
   assert.equal(f.area.shape,'SQUARE_5X5');
-  assert.deepEqual([f.effects[0].min,f.effects[0].max],[200,350]);
+  assert.deepEqual([f.effects[0].min,f.effects[0].max],[200,400]);
   assert.equal(f.effects[0].hostileOnly,false);
   assert.equal(cellsForArea({width:16,height:11},{shape:'SQUARE_5X5',center:{row:5,col:8}}).length,25);
 });

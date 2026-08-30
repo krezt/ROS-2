@@ -80,7 +80,7 @@ test('Stage 25AD Rogue VFX assets exist and scene wires every requested cue',()=
 
 test('Stage 25AD balance values reflect the requested Cleric and Paladin tuning',()=>{
   const clericProc=getAbility('Cleric','CLERIC_ATTACK').basicProc;
-  assert.deepEqual([clericProc.min,clericProc.max],[85,213]);
+  assert.deepEqual([clericProc.min,clericProc.max],[85,215]);
   const judgment=getAbility('Paladin','JUDGMENT').effects[0];
   assert.equal(judgment.afflictedMultiplier,3.5);
 });

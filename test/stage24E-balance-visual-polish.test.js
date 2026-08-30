@@ -19,7 +19,7 @@ function declaration(archetypeId,abilityId,actorId,target,roundNumber=1){
   return createRosterAbilityDeclaration({declarationId:`D:${roundNumber}:${actorId}`,roundNumber,actorId,archetypeId,abilityId,target});
 }
 
-const EXPECTED_HP={Warrior:2126,Barbarian:1997,Rogue:1700,Cleric:1784,Mage:1700,Paladin:1827,Archer:1700,Monk:1614,Necromancer:1700,Mystic:1571,Shinobi:1658,Electromancer:1614};
+const EXPECTED_HP={Warrior:2450,Barbarian:2250,Rogue:1850,Cleric:1900,Mage:1750,Paladin:1900,Archer:1800,Monk:1800,Necromancer:1800,Mystic:1700,Shinobi:1750,Electromancer:1750};
 
 test('system-wide HP, ARM/RES and requested movement baselines match the polish pass',()=>{
   for(const [id,hp] of Object.entries(EXPECTED_HP)){
@@ -42,17 +42,17 @@ test('requested ability tuning is authoritative in roster data',()=>{
   assert.deepEqual([bolt.min,bolt.max],[150,200]);
   const plague=getAbility('Necromancer','PLAGUE');
   assert.equal(plague.completionDelayCycles,6);
-  assert.deepEqual([plague.effects[0].min,plague.effects[0].max],[100,160]);
+  assert.deepEqual([plague.effects[0].min,plague.effects[0].max],[100,180]);
 
   assert.equal(getAbility('Barbarian','REND').basicStyle.attacksSet,4);
   assert.equal(getAbility('Warrior','POWER_STRIKE').basicStyle.attacksDelta,undefined);
   assert.equal(getAbility('Warrior','POWER_STRIKE').label,'Power Strikes');
 
   const focus=getAbility('Archer','RANGERS_FOCUS').effects.find(e=>e.type==='HEAL');
-  assert.deepEqual([focus.min,focus.max],[50,100]);
+  assert.equal(focus.pctMaxHP,.10);
   assert.equal(getAbility('Archer','HUNTERS_MARK').completionDelayCycles,4);
   const volley=getAbility('Archer','VOLLEY').effects.find(e=>e.type==='AOE_DAMAGE');
-  assert.deepEqual([volley.min,volley.max],[132,240]);
+  assert.deepEqual([volley.min,volley.max],[150,350]);
 
   assert.equal(getAbility('Cleric','DEFENSIVE_AURA').completionDelayCycles,2);
   assert.equal(getAbility('Cleric','ENIDS_BLESSING').completionDelayCycles,7);
@@ -157,8 +157,8 @@ test('ability detail models and notes expose the new timing, damage, heal and fo
   assert.equal(detail('Mystic','MENTAL_BREAKDOWN').timing,'2 cycles');
   assert.equal(detail('Archer','HUNTERS_MARK').timing,'4 cycles');
   assert.equal(detail('Necromancer','PLAGUE').timing,'6 cycles');
-  assert.ok(detail('Archer','RANGERS_FOCUS').lines.some(l=>l.includes('Heal 50–100')));
-  assert.ok(detail('Archer','VOLLEY').lines.some(l=>l.includes('132–240 physical damage')));
+  assert.ok(detail('Archer','RANGERS_FOCUS').lines.some(l=>l.includes('Heal 10% max HP')));
+  assert.ok(detail('Archer','VOLLEY').lines.some(l=>l.includes('150–350 physical damage')));
   assert.ok(detail('Necromancer','LIFE_DRAIN').lines.some(l=>l.includes('150–300 magical damage and heal for damage dealt')));
   assert.ok(detail('Necromancer','POISON_BOLT').lines.some(l=>l.includes('150–200 magical damage')));
 });

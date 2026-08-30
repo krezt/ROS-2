@@ -30,7 +30,7 @@ test('Stage25AB passive proc chances are explicit per successful hit',()=>{
 
 test('Stage25AB Barbarian and Rogue balance values match the requested tuning',()=>{
   const smash=getAbility('Barbarian','SMASH');
-  assert.equal(smash.basicStyle.onHit.chance,.15);
+  assert.equal(smash.basicStyle.onHit.chance,.10);
   const rend=getAbility('Barbarian','REND');
   assert.equal(rend.basicStyle.onHit.defenseShredPct,.25);
   const poison=getAbility('Rogue','POISON_DAGGER');
@@ -43,7 +43,7 @@ test('Stage25AB Shield Bash tooltip reports one proactive bash and two counter r
   const detail=abilityDetailModel(paladin,bash);
   assert.ok(detail.lines.some(line=>/^1 swing\b/.test(line)),detail.lines.join('\n'));
   assert.ok(detail.lines.some(line=>/2 remaining attack resources reserved for normal counters/.test(line)),detail.lines.join('\n'));
-  assert.ok(detail.note.includes('one 350% weapon attack'));
+  assert.ok(detail.note.includes('one 400% weapon attack'));
 });
 
 test('Stage25AB tooltips expose new per-hit proc and on-hit tuning',()=>{
@@ -65,11 +65,11 @@ test('Stage25AB tooltips expose new per-hit proc and on-hit tuning',()=>{
   const rendDetail=abilityDetailModel(barbarian,getAbility('Barbarian','REND'));
   assert.ok(rendDetail.lines.some(line=>line.includes('25% multiplicative DEF reduction')),rendDetail.lines.join(' | '));
   const smashDetail=abilityDetailModel(barbarian,getAbility('Barbarian','SMASH'));
-  assert.ok(smashDetail.lines.some(line=>line.includes('stun (15%)')),smashDetail.lines.join(' | '));
+  assert.ok(smashDetail.lines.some(line=>line.includes('stun (10%)')),smashDetail.lines.join(' | '));
   const rogue=createRosterUnit({archetypeId:'Rogue',unitId:'H2',side:SIDE.A,draftSlot:0,position:{row:5,col:5}});
   const poisonDetail=abilityDetailModel(rogue,getAbility('Rogue','POISON_DAGGER'));
   assert.ok(poisonDetail.lines.some(line=>line.includes('85% of hit damage')),poisonDetail.lines.join(' | '));
-  assert.match(getAbility('Barbarian','SMASH').note,/15%/);
+  assert.match(getAbility('Barbarian','SMASH').note,/10%/);
   assert.match(getAbility('Barbarian','REND').note,/25% DEF reduction/);
   assert.match(getAbility('Rogue','POISON_DAGGER').note,/85%/);
 });

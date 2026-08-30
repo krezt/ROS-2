@@ -31,7 +31,7 @@ test('Stage 25Z requested balance tuning is authoritative',()=>{
 
   assert.equal(getAbility('Archer','SNIPE').basicStyle.attackRangeOverride,8);
   const barbarian=getArchetype('Barbarian');
-  assert.deepEqual([barbarian.weapon.attackBaseMin,barbarian.weapon.attackBaseMax],[77,108]);
+  assert.deepEqual([barbarian.weapon.attackBaseMin,barbarian.weapon.attackBaseMax],[80,110]);
 });
 
 test('1P client opts into Tactical AI without changing PvP',()=>{
