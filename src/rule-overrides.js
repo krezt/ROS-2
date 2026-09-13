@@ -212,6 +212,7 @@ export function prepareRoundRuleOverrides(simulation) {
     runtime.metadata.basicStyleReadyCycle = simulation.state.round.initiativeCycle + Math.max(0, Math.trunc(style.startupDelayCycles ?? 0));
     runtime.metadata.basicStylePrimedInvisible = style.captureInvisibilityAtStart === true && Boolean(findStatus(actor, 'invisible'));
     runtime.metadata.basicStyleSuccessfulHits = 0;
+    runtime.metadata.basicStylePreAttackRetreatDone = false;
     simulation.trace.record('ROUND_BASIC_STYLE_APPLY', {
       actorId: runtime.actorId,
       actionId: ability.id,
@@ -589,29 +590,35 @@ export function resolvePostMeleeHitOverrides(simulation, {
   dealt,
   cycle = simulation.state.round.initiativeCycle,
   parentEventId = null,
-  source = 'BASIC_ATTACK'
+  source = 'BASIC_ATTACK',
+  abilityId = null
 }) {
   if (!(dealt > 0)) return [];
   const attacker = simulation.state.units[attackerId];
   const defender = simulation.state.units[defenderId];
   if (!attacker || !defender || defender.lifeState !== LIFE_STATE.ALIVE) return [];
-  if (attacker.weapon?.mode !== 'MELEE') return [];
+  const triggerAbility=String(abilityId??'').toUpperCase();
+  const meleeHit=attacker.weapon?.mode==='MELEE';
+  const throwingDaggerHit=String(attacker.weapon?.behavior??'').toUpperCase()==='THROWING_DAGGER';
+  const snipeHit=triggerAbility==='SNIPE';
+  if (!meleeHit && !throwingDaggerHit && !snipeHit) return [];
   const results = [];
   if (findStatus(defender, 'shift')) {
-    const tele = teleportToRandomOpenCell(simulation, defenderId, { cycle, parentEventId, reason: 'SHIFT_MELEE_REACTION' });
+    const reason=meleeHit?'SHIFT_MELEE_REACTION':(snipeHit?'SHIFT_SNIPE_REACTION':'SHIFT_THROWING_DAGGER_REACTION');
+    const tele = teleportToRandomOpenCell(simulation, defenderId, { cycle, parentEventId, reason });
     if (tele) results.push({ type: 'SHIFT', ...tele });
   }
   return results;
 }
 
-/** Determine whether a successful melee hit should be intercepted by Shieldwall. */
+/** Determine whether a successful physical weapon hit should be intercepted by Shieldwall. */
 export function resolveShieldwallIntercept(simulation, attackerId, intendedTargetId, {
   cycle = simulation.state.round.initiativeCycle,
   parentEventId = null
 } = {}) {
   const attacker = simulation.state.units[attackerId];
   const target = simulation.state.units[intendedTargetId];
-  if (!attacker || !target || attacker.weapon?.mode !== 'MELEE') return { targetId: intendedTargetId, intercepted: false };
+  if (!attacker || !target) return { targetId: intendedTargetId, intercepted: false };
   const interceptors = Object.values(simulation.state.units)
     .filter((u)=>u.side===target.side && u.unitId!==target.unitId && u.unitId!==attackerId && u.lifeState===LIFE_STATE.ALIVE)
     .map((u)=>({ unit:u, status:findStatus(u,'shield_redirect') }))

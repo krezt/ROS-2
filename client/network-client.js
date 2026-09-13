@@ -1,6 +1,6 @@
 export class CoordinatorSocket {
   constructor(url){
-    this.url=url;this.ws=null;this.listeners=new Set();this.side=null;this.matchId=null;this.roomId=null;this.roomConfig=null;this.roomLocked=false;this.draftState=null;this.matchNumber=0;this.matchComplete=null;this.playerName='Player';this.playerNames={};
+    this.url=url;this.ws=null;this.listeners=new Set();this.side=null;this.matchId=null;this.roomId=null;this.roomConfig=null;this.roomLocked=false;this.draftState=null;this.matchNumber=0;this.matchComplete=null;this.playerName='Player';this.playerNames={};this.playerId=null;this.role=null;
   }
   onMessage(fn){this.listeners.add(fn);return()=>this.listeners.delete(fn);}
   emit(msg){for(const fn of this.listeners)fn(msg);}
@@ -11,9 +11,11 @@ export class CoordinatorSocket {
       ws.onerror=(e)=>reject(e);
       ws.onmessage=(e)=>{
         const msg=JSON.parse(e.data);
+        if(msg.kind==='hello_ack')this.playerId=msg.playerId??this.playerId;
         if(msg.kind==='room_joined'){
-          this.side=msg.side;this.roomId=msg.roomId;this.roomConfig=msg.config??null;this.roomLocked=!!msg.configLocked;this.playerNames=msg.playerNames??this.playerNames;
+          this.role='PLAYER';this.side=msg.side;this.roomId=msg.roomId;this.roomConfig=msg.config??null;this.roomLocked=!!msg.configLocked;this.playerNames=msg.playerNames??this.playerNames;
         }
+        if(msg.kind==='spectator_joined'){this.role='SPECTATOR';this.side=null;this.roomId=msg.roomId;this.roomConfig=msg.config??null;this.roomLocked=true;this.playerNames=msg.playerNames??this.playerNames;this.matchId=msg.matchId??null;this.matchNumber=msg.matchNumber??0;}
         if(msg.kind==='room_config_updated')this.roomConfig=msg.config??this.roomConfig;
         if(msg.kind==='room_locked'){
           this.roomLocked=true;this.roomConfig=msg.config??this.roomConfig;this.playerNames=msg.playerNames??this.playerNames;
@@ -25,6 +27,7 @@ export class CoordinatorSocket {
         if(msg.kind==='match_complete_confirmed')this.matchComplete=msg;
         if(msg.kind==='rematch_start'){this.matchId=null;this.matchComplete=null;}
         if(msg.kind==='opponent_disconnected'&&msg.roomId===this.roomId)this.roomLocked=!!msg.configLocked;
+        if(msg.kind==='room_closed'&&msg.roomId===this.roomId){this.side=null;this.role=null;this.roomId=null;this.matchId=null;}
         this.emit(msg);
       };
       ws.onclose=()=>this.emit({kind:'socket_closed'});
@@ -39,6 +42,7 @@ export class CoordinatorSocket {
     this.send('create_room',{...(id?{id}:{}),teamSize,draftBansPerPlayer,...(ranked===true?{ranked:true}:{}),playerName:this.playerName,...(Number.isFinite(replaySpeed)?{replaySpeed}:{})});
   }
   joinRoom(id){this.send('join_room',{id,playerName:this.playerName});}
+  spectateRoom(id){this.send('spectate_room',{id,playerName:this.playerName});}
   updateRoomConfig({teamSize,draftBansPerPlayer,replaySpeed=null}){this.send('update_room_config',{teamSize,draftBansPerPlayer,...(Number.isFinite(replaySpeed)?{replaySpeed}:{})});}
   listRooms(){this.send('list_rooms');}
   requestRankings(){this.send('get_rankings');}

@@ -1,4 +1,24 @@
-# Realm of Shinobi 2.0 — Stage 25AE
+# Realm of Shinobi 2.0 — Stage 25AG
+
+Stage 25AG preserves Stage 25AF spectator/replay timing and the Stage 25AE balance overhaul while fixing Shieldwall interception for ranged physical weapon hits and adding the requested Snipe/Shift/War Cry refinements.
+
+- **Shieldwall:** its five redirects now intercept physical weapon hits regardless of melee/ranged weapon mode, so Mystic throwing daggers are correctly intercepted. The 10% team Physical Shield remains unchanged.
+- **Shift reactions:** Shift now reacts to ordinary melee hits, Mystic throwing-dagger hits, and Archer Snipe hits. Other ranged attacks do not automatically trigger it.
+- **Snipe:** Range **8→10**; base multiplier **225%→210%** so max-range scaling remains exactly equivalent (315% weapon scalar at the old/new maximum); before the first shot Archer attempts to retreat up to **3 squares** while staying within Range 10.
+- **Arcane Surge:** Mage now receives Shift for a deterministic **1–2 rounds, 50/50**, in addition to DEF Up and SDM Up.
+- **War Cry:** Barbarian additionally heals itself for a random **10–15% max HP** while retaining 75–100 magical team pressure and DEF Down.
+- **Spectator discovery:** ongoing spectatable Casual and Ranked matches are exposed with **SPECTATE** buttons from either 2P lobby; the Stage 25AF late-join reconstruction and spectator chat/read-only rules remain intact.
+- Full automated suite: **690/690 passing**.
+
+# Realm of Shinobi 2.0 — Stage 25AF
+
+Stage 25AF preserves the complete Stage 25AE balance overhaul and Stage 25AD Rogue VFX while fixing RES Down presentation, separating movement/melee replay timing from slower cast/VFX timing, and adding read-only live spectator mode with room chat.
+
+- **RES Down UI fix:** `res_down` is classified and displayed as a negative/red debuff in champion inspection instead of a positive/green status.
+- **Replay timing split:** default replay is now **0.50× for movement/melee/basic-attack presentation**, while **casts and ability VFX use an effective 0.33×** when 0.50× is selected. Selecting 0.25× or 0.33× slows both categories naturally. Combat simulation timing remains unchanged.
+- **Spectator mode:** ongoing rooms expose **SPECTATE**; spectators can join mid-match, reconstruct confirmed rounds deterministically, receive subsequent round packages/confirmations live, inspect the battlefield/log, and participate in room chat. Spectators cannot submit actions, timeouts, draw/rematch commands, draft actions, or any other gameplay authority.
+- Spectator disconnects do not affect the two-player match; player disconnect behavior remains authoritative and unchanged.
+- Full automated suite: **684/684 passing**.
 
 Stage 25AE preserves the Stage 25AD Rogue VFX update, Stage 25Z Tactical AI, Stage 25AA counter safeguards, and the existing multiplayer/ranked architecture while applying the latest roster-wide balance pass.
 

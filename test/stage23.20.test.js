@@ -19,9 +19,9 @@ test('Stage 23.20 Archer range and Snipe tuning match the latest balance ruling'
   const snipe=getAbility('Archer','SNIPE');
   assert.equal(archer.weapon.weaponRange,6);
   assert.equal(archer.weapon.preferredRange,6);
-  assert.equal(snipe.basicStyle.attackRangeOverride,8);
-  assert.equal(snipe.basicStyle.damageMultiplier,2.25);
-  assert.equal(snipe.basicStyle.distanceDamageBonusPerSquare,.05);
+  assert.equal(snipe.basicStyle.attackRangeOverride,10);
+  assert.equal(snipe.basicStyle.damageMultiplier,2.10);
+  assert.equal(snipe.basicStyle.distanceDamageBonusPerSquare,.05);assert.equal(snipe.basicStyle.preAttackRetreatSteps,3);
 });
 
 test('current survivability baselines match the latest roster values',()=>{

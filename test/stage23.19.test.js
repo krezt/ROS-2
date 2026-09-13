@@ -42,12 +42,13 @@ test('Stun blocks proactive control but allows an in-range reflex counter with z
   void scheduler;
 });
 
-test('Snipe has Range 8, 225% base damage, and +5% damage per actual square of separation',()=>{
-  const s=getAbility('Archer','SNIPE');assert.equal(s.basicStyle.attackRangeOverride,8);assert.equal(s.basicStyle.damageMultiplier,2.25);assert.equal(s.basicStyle.distanceDamageBonusPerSquare,.05);
-  const state=pair('Archer','Warrior',{row:5,col:2},{row:5,col:9});state.units.H0.weapon.attackBaseMin=100;state.units.H0.weapon.attackBaseMax=100;state.units.H0.stats.CRIT=0;state.units.H0.weapon.critBonus=0;state.units.G0.stats.DEF=0;state.units.G0.stats.QKN=-1000;state.units.G0.stats.hp=9999;state.units.G0.stats.maxHP=9999;
+test('Snipe is Range 10 at 210% base, preserves the old max-range damage scalar, and has +5% per-square scaling',()=>{
+  const s=getAbility('Archer','SNIPE');assert.equal(s.basicStyle.attackRangeOverride,10);assert.equal(s.basicStyle.damageMultiplier,2.10);assert.equal(s.basicStyle.distanceDamageBonusPerSquare,.05);assert.equal(s.basicStyle.preAttackRetreatSteps,3);
+  assert.ok(Math.abs((2.10*(1+10*.05))-(2.25*(1+8*.05)))<1e-12);
+  const state=pair('Archer','Warrior',{row:5,col:2},{row:5,col:12});state.units.H0.weapon.attackBaseMin=100;state.units.H0.weapon.attackBaseMax=100;state.units.H0.stats.CRIT=0;state.units.H0.weapon.critBonus=0;state.units.G0.stats.DEF=0;state.units.G0.stats.QKN=-1000;state.units.G0.stats.hp=9999;state.units.G0.stats.maxHP=9999;
   const sim=createRoundSimulation({state,declarations:[decl('Archer','SNIPE'),hold('G0')],seed:4});createRosterCombatScheduler(sim,{countersEnabled:false});sim.state.units.H0.resources.attacksRemaining=1;
-  const hit=resolveBasicAttack(sim,'H0','G0',{cycle:0,ignoreAttackInterval:true,rangeOverride:8});
-  assert.ok(hit.dealt>=303&&hit.dealt<=304);
+  const hit=resolveBasicAttack(sim,'H0','G0',{cycle:0,ignoreAttackInterval:true,rangeOverride:10});
+  assert.equal(hit.dealt,315);
 });
 
 test('Warhorn is a 2-cycle team buff granting +1 SW and +2 Movement for 4 rounds',()=>{

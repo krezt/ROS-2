@@ -648,7 +648,7 @@ export const KITE_RESULT = Object.freeze({
   NO_LEGAL_RETREAT: 'NO_LEGAL_RETREAT'
 });
 
-function directAwayCandidates(state, actorId, threatId) {
+function directAwayCandidates(state, actorId, threatId, rangeOverride = null) {
   const actor = requireUnit(state, actorId, 'actor');
   const threat = requireUnit(state, threatId, 'threat');
   const { row: ar, col: ac } = actor.position;
@@ -660,11 +660,12 @@ function directAwayCandidates(state, actorId, threatId) {
   if (ac < tc) out.push({ row: ar, col: ac - 1 });
   else if (ac > tc) out.push({ row: ar, col: ac + 1 });
 
+  const effectiveRange = Number.isFinite(rangeOverride) ? Math.max(0, Number(rangeOverride)) : actor.weapon.weaponRange;
   return out
     .filter((pos) => isInBounds(state.board, pos.row, pos.col))
     .filter((pos) => isCellOpen(state, pos.row, pos.col, { ignoreUnitId: actorId }))
     .map((pos) => ({ ...pos, threatDistance: manhattanDistance(pos, threat.position) }))
-    .filter((pos) => pos.threatDistance <= actor.weapon.weaponRange)
+    .filter((pos) => pos.threatDistance <= effectiveRange)
     .sort(comparePositions);
 }
 
@@ -679,13 +680,14 @@ function directAwayCandidates(state, actorId, threatId) {
  * The chosen square must keep the threat inside weaponRange so the promised
  * attack/counter can still occur immediately after the retreat.
  */
-export function planThreatRetreatStep(state, actorId, threatId, { rng = null } = {}) {
+export function planThreatRetreatStep(state, actorId, threatId, { rng = null, range = null } = {}) {
   assertBattlefieldInvariants(state);
   const actor = requireUnit(state, actorId, 'actor');
   const threat = requireUnit(state, threatId, 'threat');
   invariant(actor.position && threat.position, 'Actor and threat must have battlefield positions.');
   invariant(actor.lifeState === LIFE_STATE.ALIVE, 'Dead actor cannot kite.', { actorId });
 
+  const effectiveRange = Number.isFinite(range) ? Math.max(0, Number(range)) : actor.weapon.weaponRange;
   const distanceBefore = manhattanDistance(actor.position, threat.position);
   const base = {
     actorId,
@@ -703,7 +705,7 @@ export function planThreatRetreatStep(state, actorId, threatId, { rng = null } =
   if (actor.resources.attacksRemaining <= 0) return Object.freeze({ ...base, result: KITE_RESULT.NO_ATTACKS });
   if (isRooted(actor) || actor.resources.movementRemaining <= 0) return Object.freeze({ ...base, result: KITE_RESULT.NO_MOVEMENT });
 
-  const direct = directAwayCandidates(state, actorId, threatId)
+  const direct = directAwayCandidates(state, actorId, threatId, effectiveRange)
     .filter((pos) => pos.threatDistance > distanceBefore);
 
   let best = direct;
@@ -713,7 +715,7 @@ export function planThreatRetreatStep(state, actorId, threatId, { rng = null } =
     const legal = orthogonalNeighbors(state.board, actor.position)
       .filter((pos) => isCellOpen(state, pos.row, pos.col, { ignoreUnitId: actorId }))
       .map((pos) => ({ ...pos, threatDistance: manhattanDistance(pos, threat.position) }))
-      .filter((pos) => pos.threatDistance <= actor.weapon.weaponRange)
+      .filter((pos) => pos.threatDistance <= effectiveRange)
       .filter((pos) => pos.threatDistance >= distanceBefore)
       .sort((a, b) => {
         if (a.threatDistance !== b.threatDistance) return b.threatDistance - a.threatDistance;
@@ -751,22 +753,23 @@ export function planThreatRetreatStep(state, actorId, threatId, { rng = null } =
   });
 }
 
-export function hasLegalThreatRetreatStep(state, actorId, threatId) {
+export function hasLegalThreatRetreatStep(state, actorId, threatId, { range = null } = {}) {
   const actor = requireUnit(state, actorId, 'actor');
   const threat = requireUnit(state, threatId, 'threat');
   if (!actor || !threat || actor.lifeState !== LIFE_STATE.ALIVE || threat.lifeState !== LIFE_STATE.ALIVE) return false;
   if (actor.resources.attacksRemaining <= 0 || actor.resources.movementRemaining <= 0 || isRooted(actor)) return false;
 
+  const effectiveRange = Number.isFinite(range) ? Math.max(0, Number(range)) : actor.weapon.weaponRange;
   const distanceBefore = manhattanDistance(actor.position, threat.position);
   return orthogonalNeighbors(state.board, actor.position)
     .filter((pos) => isCellOpen(state, pos.row, pos.col, { ignoreUnitId: actorId }))
     .map((pos) => ({ ...pos, distance: manhattanDistance(pos, threat.position) }))
-    .some((pos) => pos.distance >= distanceBefore && pos.distance <= actor.weapon.weaponRange);
+    .some((pos) => pos.distance >= distanceBefore && pos.distance <= effectiveRange);
 }
 
 /** Execute exactly one authoritative Stage-8 retreat step. */
-export function advanceThreatRetreatOneStep(state, actorId, threatId, { rng = null } = {}) {
-  const plan = planThreatRetreatStep(state, actorId, threatId, { rng });
+export function advanceThreatRetreatOneStep(state, actorId, threatId, { rng = null, range = null } = {}) {
+  const plan = planThreatRetreatStep(state, actorId, threatId, { rng, range });
   if (plan.result !== KITE_RESULT.MOVE) {
     return Object.freeze({ ...plan, moved: false, movementBefore: null, movementAfter: null });
   }

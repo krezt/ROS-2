@@ -1,9 +1,9 @@
 {
   "name": "ros2-simulation-core",
-  "version": "0.25.31-stage25ae-balance-overhaul",
+  "version": "0.25.33-stage25ag-shieldwall-snipe-shift-spectator",
   "private": true,
   "type": "module",
-  "description": "Realm of Shinobi 2.0 deterministic combat \u2014 Stage 25AE balance overhaul",
+  "description": "Realm of Shinobi 2.0 deterministic combat — Stage 25AG Shieldwall ranged intercept, Snipe reposition tuning, Shift reactions, War Cry sustain, spectator discovery",
   "scripts": {
     "test": "node --test",
     "demo": "node demo/stage23-demo.js",

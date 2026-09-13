@@ -99,7 +99,7 @@ test('Archer Cover Fire uses four shots and successful hits Blind for the round'
   assert.equal(blind.duration,1); assert.equal(blind.data.whiffChance,.4);
 });
 
-test('Archer Snipe uses three long-range shots with distance scaling and ordinary kiting',()=>{
+test('Archer Snipe uses three long-range shots after a pre-shot retreat',()=>{
   const state=pair('Archer','Warrior',{row:3,col:5},{row:3,col:3}); noDodge(state.units.G0);
   state.units.H0.weapon.attackBaseMin=40;state.units.H0.weapon.attackBaseMax=40;state.units.H0.stats.CRIT=0;state.units.H0.weapon.critBonus=0;
   const sim=run(state,[decl('Archer','SNIPE'),hold('G0')],5,false);
@@ -146,12 +146,12 @@ test("Shinobi Thief's Haste triples Movement capacity and cleans it up on expira
 });
 
 // --- Defensive / reaction rule-breaking -------------------------------------------
-test('Shieldwall redirects exactly the first five melee hits aimed at an ally',()=>{
+test('Shieldwall redirects exactly the first five physical weapon hits aimed at an ally',()=>{
   const state=createBattleState({matchId:'SHIELDWALL',units:[
     unit('Warrior','H0',SIDE.A,{row:3,col:4}), unit('Cleric','H1',SIDE.A,{row:3,col:5},1), unit('Barbarian','G0',SIDE.B,{row:3,col:7})
   ]});
   noDodge(state.units.H0);noDodge(state.units.H1);state.units.H0.stats.hp=9999;state.units.H0.stats.maxHP=9999;state.units.H1.stats.hp=9999;state.units.H1.stats.maxHP=9999;
-  state.units.H0.statuses.push({key:'shield_redirect',duration:1,sourceId:'H0',data:{remaining:5,meleeOnly:true}});
+  state.units.H0.statuses.push({key:'shield_redirect',duration:1,sourceId:'H0',data:{remaining:5,physicalOnly:true}});
   const sim=createRoundSimulation({state,declarations:[hold('H0'),hold('H1'),decl('Barbarian','BARBARIAN_ATTACK','G0',{type:TARGET_TYPE.UNIT,unitId:'H1'})],seed:10});
   for(let i=0;i<6;i++) resolveBasicAttack(sim,'G0','H1',{cycle:0,ignoreAttackInterval:true});
   const ints=sim.events.snapshot().filter(e=>e.type===EVENT_TYPE.INTERCEPT);

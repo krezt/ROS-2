@@ -394,7 +394,8 @@ export function resolveBasicAttack(simulation, actorId, targetId, {
     dealt,
     cycle,
     parentEventId: damage.eventId,
-    source: 'BASIC_ATTACK'
+    source: 'BASIC_ATTACK',
+    abilityId: styleContext.abilityId
   });
 
   simulation.trace.record('BASIC_ATTACK_RESOLVED', {
@@ -430,13 +431,14 @@ export function resolveBasicAttack(simulation, actorId, targetId, {
   });
 }
 
-export function selectNearestInRangeEnemy(simulation, actorId, { reason = 'REPLACEMENT_TARGET' } = {}) {
+export function selectNearestInRangeEnemy(simulation, actorId, { reason = 'REPLACEMENT_TARGET', range = null } = {}) {
   const actor = requireUnit(simulation.state, actorId, 'actor');
+  const effectiveRange=Number.isFinite(range)?Math.max(0,Number(range)):actor.weapon.weaponRange;
   const candidates = Object.values(simulation.state.units)
     .filter((unit) => unit.side !== actor.side && unit.lifeState === LIFE_STATE.ALIVE)
     .filter((unit) => canAcquireDirectHostileTarget(simulation.state, actorId, unit.unitId))
     .map((unit) => ({ unit, distance: manhattanDistance(actor.position, unit.position) }))
-    .filter(({ distance }) => distance <= actor.weapon.weaponRange);
+    .filter(({ distance }) => distance <= effectiveRange);
 
   if (candidates.length === 0) return null;
   const minDistance = Math.min(...candidates.map((x) => x.distance));
@@ -450,24 +452,25 @@ export function selectNearestInRangeEnemy(simulation, actorId, { reason = 'REPLA
 }
 
 
-export function selectRandomInRangeEnemy(simulation, actorId, { reason = 'RANDOM_REPLACEMENT_TARGET' } = {}) {
+export function selectRandomInRangeEnemy(simulation, actorId, { reason = 'RANDOM_REPLACEMENT_TARGET', range = null } = {}) {
   const actor = requireUnit(simulation.state, actorId, 'actor');
+  const effectiveRange=Number.isFinite(range)?Math.max(0,Number(range)):actor.weapon.weaponRange;
   const candidates = Object.values(simulation.state.units)
     .filter((unit) => unit.side !== actor.side && unit.lifeState === LIFE_STATE.ALIVE)
     .filter((unit) => canAcquireDirectHostileTarget(simulation.state, actorId, unit.unitId))
-    .filter((unit) => manhattanDistance(actor.position, unit.position) <= actor.weapon.weaponRange)
+    .filter((unit) => manhattanDistance(actor.position, unit.position) <= effectiveRange)
     .sort((a, b) => a.unitId.localeCompare(b.unitId));
   if (candidates.length === 0) return null;
   if (candidates.length === 1) return candidates[0].unitId;
   return simulation.rng.choose(candidates, `${reason}:${actorId}`).unitId;
 }
 
-export function selectReplacementTarget(simulation, actorId, { reason = 'REPLACEMENT_TARGET' } = {}) {
+export function selectReplacementTarget(simulation, actorId, { reason = 'REPLACEMENT_TARGET', range = null } = {}) {
   const actor = requireUnit(simulation.state, actorId, 'actor');
   if (actor.weapon.retargetPolicy === RETARGET_POLICY.IN_RANGE_RANDOM) {
-    return selectRandomInRangeEnemy(simulation, actorId, { reason });
+    return selectRandomInRangeEnemy(simulation, actorId, { reason, range });
   }
-  return selectNearestInRangeEnemy(simulation, actorId, { reason });
+  return selectNearestInRangeEnemy(simulation, actorId, { reason, range });
 }
 
 export function isThrowingDaggerWeapon(actor) {
@@ -675,11 +678,31 @@ function maybeThrowingDaggerKite(simulation, runtime, targetId, cycle, { parentE
       return { moved: false, result: Object.freeze({ result: 'MAX_STYLE_RANGE' }), moveEvent: null };
     }
   }
-  const retreat = advanceThreatRetreatOneStep(simulation.state, actor.unitId, targetId, { rng: simulation.rng });
+  const retreat = advanceThreatRetreatOneStep(simulation.state, actor.unitId, targetId, { rng: simulation.rng, range:Number.isFinite(styleRange)?styleRange:null });
   runtime.metadata.lastKiteResult = retreat.result;
   if (retreat.result !== KITE_RESULT.MOVE) return { moved: false, result: retreat, moveEvent: null };
   const moveEvent = emitKiteMove(simulation, runtime, targetId, cycle, retreat, { parentEventId, movementReason });
   return { moved: true, result: retreat, moveEvent };
+}
+
+function maybeStylePreAttackRetreat(simulation,runtime,targetId,cycle,{parentEventId=null}={}){
+  const actor=simulation.state.units[runtime.actorId];
+  const style=currentBasicStyle(simulation,runtime.actorId);
+  const requested=Math.max(0,Math.trunc(style?.preAttackRetreatSteps??0));
+  if(!actor||requested<=0||runtime.metadata.basicStylePreAttackRetreatDone)return {moved:false,count:0,moveEvent:null,results:[]};
+  runtime.metadata.basicStylePreAttackRetreatDone=true;
+  const rangeOverride=styleAttackRangeOverride(simulation,runtime.actorId);
+  const results=[];let lastEvent=null;
+  for(let i=0;i<requested;i++){
+    const target=simulation.state.units[targetId];
+    if(!target||target.lifeState!==LIFE_STATE.ALIVE||actor.resources.movementRemaining<=0)break;
+    if(Number.isFinite(rangeOverride)&&manhattanDistance(actor.position,target.position)>=rangeOverride)break;
+    const retreat=advanceThreatRetreatOneStep(simulation.state,actor.unitId,targetId,{rng:simulation.rng,range:Number.isFinite(rangeOverride)?rangeOverride:null});
+    results.push(retreat);
+    if(retreat.result!==KITE_RESULT.MOVE)break;
+    lastEvent=emitKiteMove(simulation,runtime,targetId,cycle,retreat,{parentEventId:lastEvent?.eventId??parentEventId,movementReason:'STYLE_PRE_ATTACK_RETREAT'});
+  }
+  return {moved:results.some(r=>r.result===KITE_RESULT.MOVE),count:results.filter(r=>r.result===KITE_RESULT.MOVE).length,moveEvent:lastEvent,results};
 }
 
 /**
@@ -745,7 +768,7 @@ export function advanceBasicCombatRuntime(simulation, actorId, {
   const primaryTargetId = runtime.currentForcedTargetId ?? runtime.declaredPrimaryTargetId;
   const primary = simulation.state.units[primaryTargetId];
   if (!primary || primary.lifeState !== LIFE_STATE.ALIVE) {
-    const replacementId = selectReplacementTarget(simulation, actorId);
+    const replacementId = selectReplacementTarget(simulation, actorId,{range:styleAttackRangeOverride(simulation,actorId)});
     if (!replacementId) {
       markRuntimeTerminal(simulation, runtime, ACTION_RUNTIME_STATE.COMPLETED, 'PRIMARY_TARGET_DEAD_NO_IN_RANGE_REPLACEMENT');
       return Object.freeze({ actorId, runtimeId: runtime.runtimeId, result: COMBAT_ADVANCE_RESULT.COMPLETED_TARGET_DEAD, moved: false, attacked: false });
@@ -762,10 +785,11 @@ export function advanceBasicCombatRuntime(simulation, actorId, {
       });
     }
     const attackTargetId = selectStyleAttackTarget(simulation, runtime, replacementId, { reason: 'IN_RANGE_REPLACEMENT_STYLE_TARGET' });
-    const kite = maybeThrowingDaggerKite(simulation, runtime, attackTargetId, cycle, { movementReason: 'THROWING_DAGGER_RETARGET_KITE' });
+    const preRetreat=maybeStylePreAttackRetreat(simulation,runtime,attackTargetId,cycle,{parentEventId:runtime.metadata.actionStartEventId??null});
+    const kite = maybeThrowingDaggerKite(simulation, runtime, attackTargetId, cycle, { parentEventId:preRetreat.moveEvent?.eventId??null,movementReason: 'THROWING_DAGGER_RETARGET_KITE' });
     const attack = resolveBasicAttack(simulation, actorId, attackTargetId, {
       cycle,
-      parentEventId: kite.moveEvent?.eventId ?? runtime.metadata.actionStartEventId ?? null,
+      parentEventId: kite.moveEvent?.eventId ?? preRetreat.moveEvent?.eventId ?? runtime.metadata.actionStartEventId ?? null,
       attackReason: 'IN_RANGE_REPLACEMENT',
       rangeOverride: styleAttackRangeOverride(simulation, actorId)
     });
@@ -784,9 +808,10 @@ export function advanceBasicCombatRuntime(simulation, actorId, {
     const moveEvent = emitMove(simulation, runtime, primary.unitId, cycle, pursuit);
     if (pursuit.nowInRange && cycle >= actor.resources.nextOrdinaryAttackCycle && actor.resources.attacksRemaining > 0) {
       const attackTargetId = selectStyleAttackTarget(simulation, runtime, primary.unitId, { reason: 'MOVE_AND_ATTACK_STYLE_TARGET' });
+      const preRetreat=maybeStylePreAttackRetreat(simulation,runtime,attackTargetId,cycle,{parentEventId:moveEvent.eventId});
       const attack = resolveBasicAttack(simulation, actorId, attackTargetId, {
         cycle,
-        parentEventId: moveEvent.eventId,
+        parentEventId: preRetreat.moveEvent?.eventId??moveEvent.eventId,
         attackReason: 'MOVE_AND_ATTACK',
         rangeOverride: styleAttackRangeOverride(simulation, actorId)
       });
@@ -830,10 +855,11 @@ export function advanceBasicCombatRuntime(simulation, actorId, {
         });
       }
       const attackTargetId = selectStyleAttackTarget(simulation, runtime, primary.unitId, { reason: 'KITE_STYLE_TARGET' });
-      const kite = maybeThrowingDaggerKite(simulation, runtime, attackTargetId, cycle);
+      const preRetreat=maybeStylePreAttackRetreat(simulation,runtime,attackTargetId,cycle,{parentEventId:runtime.metadata.actionStartEventId??null});
+      const kite = maybeThrowingDaggerKite(simulation, runtime, attackTargetId, cycle,{parentEventId:preRetreat.moveEvent?.eventId??null});
       const attack = resolveBasicAttack(simulation, actorId, attackTargetId, {
         cycle,
-        parentEventId: kite.moveEvent?.eventId ?? runtime.metadata.actionStartEventId ?? null,
+        parentEventId: kite.moveEvent?.eventId ?? preRetreat.moveEvent?.eventId ?? runtime.metadata.actionStartEventId ?? null,
         attackReason: kite.moved ? 'THROWING_DAGGER_KITE_AND_ATTACK' : 'ORDINARY',
         rangeOverride: styleAttackRangeOverride(simulation, actorId)
       });
@@ -919,9 +945,10 @@ export function advanceBasicCombatRuntime(simulation, actorId, {
       });
     }
     const attackTargetId = selectStyleAttackTarget(simulation, runtime, primary.unitId, { reason: 'ORDINARY_STYLE_TARGET' });
+    const preRetreat=maybeStylePreAttackRetreat(simulation,runtime,attackTargetId,cycle,{parentEventId:runtime.metadata.actionStartEventId??null});
     const attack = resolveBasicAttack(simulation, actorId, attackTargetId, {
       cycle,
-      parentEventId: runtime.metadata.actionStartEventId ?? null,
+      parentEventId: preRetreat.moveEvent?.eventId??runtime.metadata.actionStartEventId ?? null,
       attackReason: 'ORDINARY',
       rangeOverride: styleAttackRangeOverride(simulation, actorId)
     });
@@ -952,7 +979,7 @@ export function advanceBasicCombatRuntime(simulation, actorId, {
   }
   if (pursuit.result === PURSUIT_RESULT.TARGET_DEAD) {
     // Defensive fallback; target death is handled before pursuit above.
-    const replacementId = selectReplacementTarget(simulation, actorId);
+    const replacementId = selectReplacementTarget(simulation, actorId,{range:styleAttackRangeOverride(simulation,actorId)});
     if (!replacementId) {
       markRuntimeTerminal(simulation, runtime, ACTION_RUNTIME_STATE.COMPLETED, 'PRIMARY_TARGET_DEAD_NO_IN_RANGE_REPLACEMENT');
       return Object.freeze({ actorId, runtimeId: runtime.runtimeId, result: COMBAT_ADVANCE_RESULT.COMPLETED_TARGET_DEAD, moved: false, attacked: false });
@@ -990,18 +1017,20 @@ export function dumpRemainingBasicAttacks(simulation, runtime, {
     let targetId = null;
     const primaryTargetId = runtime.currentForcedTargetId ?? runtime.declaredPrimaryTargetId;
     const primary = simulation.state.units[primaryTargetId];
-    if (primary?.lifeState === LIFE_STATE.ALIVE && isWithinWeaponRange(actor, primary)) {
+    const dumpRange=styleAttackRangeOverride(simulation,actor.unitId)??actor.weapon.weaponRange;
+    if (primary?.lifeState === LIFE_STATE.ALIVE && manhattanDistance(actor.position,primary.position)<=dumpRange) {
       targetId = primary.unitId;
     } else if (!primary || primary.lifeState !== LIFE_STATE.ALIVE) {
-      targetId = selectReplacementTarget(simulation, actor.unitId, { reason: 'ATTACK_DUMP_REPLACEMENT' });
+      targetId = selectReplacementTarget(simulation, actor.unitId, { reason: 'ATTACK_DUMP_REPLACEMENT',range:dumpRange });
     }
 
     if (!targetId) break;
     targetId = selectStyleAttackTarget(simulation, runtime, targetId, { reason: 'ATTACK_DUMP_STYLE_TARGET' });
-    const kite = maybeThrowingDaggerKite(simulation, runtime, targetId, cycle, { movementReason: 'THROWING_DAGGER_DUMP_KITE' });
+    const preRetreat=maybeStylePreAttackRetreat(simulation,runtime,targetId,cycle,{parentEventId:runtime.metadata.actionStartEventId??null});
+    const kite = maybeThrowingDaggerKite(simulation, runtime, targetId, cycle, { parentEventId:preRetreat.moveEvent?.eventId??null,movementReason: 'THROWING_DAGGER_DUMP_KITE' });
     const attack = resolveBasicAttack(simulation, actor.unitId, targetId, {
       cycle,
-      parentEventId: kite.moveEvent?.eventId ?? runtime.metadata.actionStartEventId ?? null,
+      parentEventId: kite.moveEvent?.eventId ?? preRetreat.moveEvent?.eventId ?? runtime.metadata.actionStartEventId ?? null,
       ignoreAttackInterval: true,
       attackReason: 'END_OF_ROUND_DUMP',
       rangeOverride: styleAttackRangeOverride(simulation, actor.unitId)

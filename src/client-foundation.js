@@ -61,7 +61,7 @@ export function abilityUseText(actor,ability){
   return `${remaining}/${ability.usesMax} use${ability.usesMax===1?'':'s'} remaining this match`;
 }
 
-const NEGATIVE_STATUS_KEYS=new Set(['poison','bleed','stun','silence','taunt','berserk','root','suppression','spellbreak','marked','blind','def_down','rend_def_down','atk_down','sdm_down']);
+const NEGATIVE_STATUS_KEYS=new Set(['poison','bleed','stun','silence','taunt','berserk','root','suppression','spellbreak','marked','blind','def_down','rend_def_down','atk_down','sdm_down','res_down']);
 
 export const CONTROL_IMPAIRING_STATUS_KEYS=Object.freeze(['stun','silence','taunt','berserk','root','suppression','spellbreak']);
 const CONTROL_IMPAIRING_STATUS_SET=new Set(CONTROL_IMPAIRING_STATUS_KEYS);
@@ -153,6 +153,7 @@ function statusTooltipText(status,{poisonAmount=null}={}){
     atk_up:'Beneficial. Increases physical damage multiplier.',
     sdm_up:'Beneficial. Increases spell damage/healing multiplier.',
     def_up:'Beneficial. Increases base physical mitigation.',
+    res_down:'Negative. Reduces base magical mitigation.',
     res_up:'Beneficial. Increases base magical mitigation.',
     dodge_up:`Beneficial. Adds ${pct(d.bonus??.05)} physical dodge chance while active.`,
     physical_shield:`Beneficial. Reduces incoming physical damage by ${pct(d.pct??.50)} after ARM.`,
@@ -240,6 +241,7 @@ function summarizeEffect(actor,effect,ability){
   if(type==='FULL_HEAL')return 'Restore to full HP';
   if(type==='APPLY_STATUS'){
     const key=String(effect.key??'').toLowerCase();
+    const durationText=(Number.isFinite(effect.durationMin)&&Number.isFinite(effect.durationMax))?`${effect.durationMin}–${effect.durationMax} rounds`:`${effect.duration??'?'} round${effect.duration===1?'':'s'}`;
     if(key==='regen'&&ability?.targetType===TARGET_TYPE.SELF){
       const pct=Number.isFinite(effect.data?.pct)?effect.data.pct:.10;
       const amount=Math.max(1,Math.floor((actor.stats?.maxHP??0)*pct));
@@ -248,7 +250,7 @@ function summarizeEffect(actor,effect,ability){
     if(key==='poison_imbue'&&Number.isFinite(effect.data?.damageRatio))return `Poison Imbue • successful basic hits add Poison equal to ${fmtPct(effect.data.damageRatio*100)} of hit damage • ${effect.duration??'?'} rounds`;
     if(['physical_shield','magic_shield','divine_shield'].includes(key)&&Number.isFinite(effect.data?.pct))return `${String(effect.key).replaceAll('_',' ')} • ${fmtPct(effect.data.pct*100)} reduction • ${effect.duration??'?'} round${effect.duration===1?'':'s'}${effect.stackMode==='STACK_SHIELD'?' • stacks to 2':''}`;
     if(key==='dodge_up'&&Number.isFinite(effect.data?.bonus))return `Dodge Up • +${fmtPct(effect.data.bonus*100)} physical dodge • ${effect.duration??'?'} rounds`;
-    return `${String(effect.key).replaceAll('_',' ')} • ${effect.duration??'?'} round${effect.duration===1?'':'s'}${Number(effect.chance)<1?` • ${fmtPct(effect.chance*100)} chance`:''}`;
+    return `${String(effect.key).replaceAll('_',' ')} • ${durationText}${Number(effect.chance)<1?` • ${fmtPct(effect.chance*100)} chance`:''}`;
   }
   if(type==='LIFE_DRAIN')return `${scaledRange(effect.min,effect.max,directMultiplier(actor,'SDM'))} magical damage and heal for damage dealt`;
   if(type==='CURRENT_HP_DAMAGE')return `${Math.round((effect.fraction??0)*100)}% current-HP damage`;
@@ -283,6 +285,7 @@ export function abilityDetailModel(actor,ability){
       if(f.stealthDamageMultiplier||f.stealthCritBonus)lines.push(`Primed from Invisibility: ${Math.round((f.stealthDamageMultiplier??f.damageMultiplier??1)*100)}% weapon damage • +${Math.round(((f.critBonus??0)+(f.stealthCritBonus??0))*100)}% crit`);
     }
     if(style.movementMultiplier!=null)lines.push(`Movement ×${style.movementMultiplier}`);
+    if(Number.isFinite(style.preAttackRetreatSteps)&&style.preAttackRetreatSteps>0)lines.push(`Before first shot: attempt to retreat up to ${Math.trunc(style.preAttackRetreatSteps)} squares while staying in attack range`);
     if(style.onHit?.defenseShredPct)lines.push(`On hit: ${fmtPct(style.onHit.defenseShredPct*100)} multiplicative DEF reduction per stack • ${style.onHit.duration??'?'}R`);
     else if(style.onHit?.statusKey)lines.push(`On hit: ${String(style.onHit.statusKey).replaceAll('_',' ')}${style.onHit.chance!=null?` (${fmtPct(style.onHit.chance*100)})`:''}${style.onHit.duration?` • ${style.onHit.duration}R`:''}`);
     const proc=ability.basicProc;if(proc){const chance=Number.isFinite(proc.roundChance)?`~${fmtPct(proc.roundChance*100)} across a full attack sequence${Number.isFinite(proc.maxPerRound)?` • max ${proc.maxPerRound}/round`:''}`:(Number.isFinite(proc.chance)?`${fmtPct(proc.chance*100)} per successful hit`:'guaranteed');let effect=proc.label??'Passive proc';if(proc.type==='DAMAGE'){effect+=` • ${scaledRange(proc.min??0,proc.max??proc.min??0,directMultiplier(actor,proc.scalesWith??'SDM'))} ${String(proc.damageType??'MAGICAL').toLowerCase()} damage`;if(Number(proc.defensePenetration)>0)effect+=` • ${fmtPct(proc.defensePenetration*100)} penetration`;if(proc.canCrit!==false)effect+=` • ${fmtPct(Math.min(1,Number(actor.stats?.CRIT??0)+Number(proc.critBonus??0))*100)} crit`;}else if(proc.type==='LIFE_DRAIN')effect+=` • ${scaledRange(proc.min??0,proc.max??proc.min??0,directMultiplier(actor,proc.scalesWith??'SDM'))} magical drain`;else if(proc.type==='HEAL_SELF')effect+=` • ${scaledRange(proc.min??0,proc.max??proc.min??0,directMultiplier(actor,proc.scalesWith??'SDM'))} self-heal`;else if(proc.type==='STATUS'||proc.type==='STATUS_SELF'){effect+=` • ${String(proc.key??'status').replaceAll('_',' ')}${proc.duration?` ${proc.duration}R`:''}`;for(const extra of proc.additionalStatuses??[])effect+=` + ${String(extra.key??'status').replaceAll('_',' ')}${extra.duration?` ${extra.duration}R`:''}`;}lines.push(`Passive: ${effect} • ${chance}`);}

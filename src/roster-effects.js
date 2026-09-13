@@ -54,7 +54,7 @@ function applyDamage(sim,actor,target,spec,cycle,parentEventId,label){
  const before=target.stats.hp; target.stats.hp=Math.max(0,before-amount); const dealt=before-target.stats.hp;
  const damage=emit(sim,EVENT_TYPE.DAMAGE,{initiativeCycle:cycle,actorId:actor.unitId,targetId:target.unitId,parentEventId:intercept.eventId??parentEventId,payload:{amount:dealt,hpBefore:before,hpAfter:target.stats.hp,source:'ABILITY',abilityId:label,damageType,crit,intendedTargetId:intendedTarget.unitId,intercepted:intercept.intercepted,preIncomingDamage,incomingDamageMultiplier:incomingMultiplier,mitigated:Math.max(0,preIncomingDamage-dealt),...(spec.simultaneousGroup?{simultaneousGroup:spec.simultaneousGroup}:{})}});
  let killed=false; if(target.stats.hp<=0&&target.lifeState===LIFE_STATE.ALIVE){markUnitDead(sim.state,target.unitId);updateBattleOutcome(sim.state);killed=true;emit(sim,EVENT_TYPE.KO,{initiativeCycle:cycle,actorId:actor.unitId,targetId:target.unitId,parentEventId:damage.eventId,payload:{position:target.position,source:'ABILITY',abilityId:label}});}
- if(!killed)resolvePostMeleeHitOverrides(sim,{attackerId:actor.unitId,defenderId:target.unitId,dealt,cycle,parentEventId:damage.eventId,source:'ABILITY'});
+ if(!killed)resolvePostMeleeHitOverrides(sim,{attackerId:actor.unitId,defenderId:target.unitId,dealt,cycle,parentEventId:damage.eventId,source:'ABILITY',abilityId:label});
  return {dealt,killed,dodged:false,damageEventId:damage.eventId,targetId:target.unitId,intendedTargetId:intendedTarget.unitId,crit,stealthContext};
 }
 function healTarget(sim,actor,target,spec,cycle,parentEventId,label){
@@ -67,20 +67,23 @@ function healTarget(sim,actor,target,spec,cycle,parentEventId,label){
 function applyStatus(sim,actor,target,effect,cycle,parentEventId){
  if(!target||target.lifeState!==LIFE_STATE.ALIVE)return false;
  const key=statusKey(effect.key),chance=effect.chance??1;
+ const minDuration=Number.isFinite(effect.durationMin)?Math.max(1,Math.trunc(effect.durationMin)):null;
+ const maxDuration=Number.isFinite(effect.durationMax)?Math.max(minDuration??1,Math.trunc(effect.durationMax)):null;
+ const duration=(minDuration!==null&&maxDuration!==null)?(minDuration===maxDuration?minDuration:(()=>{sim.rng.nextFloat(`STATUS_DURATION:${key}:${actor.unitId}->${target.unitId}`);return minDuration+((sim.rng.state>>>0)%(maxDuration-minDuration+1));})()):effect.duration;
  if(chance<1&&!sim.rng.chance(chance,`STATUS_CHANCE:${effect.key}:${actor.unitId}->${target.unitId}`)){
   if(effect.data?.announceResist||RESISTIBLE_CONTROL.has(key))emit(sim,EVENT_TYPE.BLOCK,{initiativeCycle:cycle,actorId:target.unitId,targetId:target.unitId,parentEventId,payload:{reason:'STATUS_RESIST',blockedStatusKey:key,hostileSourceId:actor.unitId}});
   return false;
  }
- if(CONTROL.has(key)){applyControlEffect(sim,target.unitId,{type:key.toUpperCase(),sourceId:actor.unitId,duration:effect.duration,cycle,parentEventId});return true;}
- if(effect.stackMode==='STACK'){const existing=findStatus(target,key);const stacks=Math.min(5,(existing?.data?.stacks??0)+1);return Boolean(applyTimedStatus(sim,target.unitId,{key,duration:effect.duration,sourceId:actor.unitId,data:{...(effect.data??{}),stacks},stack:STATUS_STACK.REFRESH,cycle,parentEventId}));}
+ if(CONTROL.has(key)){applyControlEffect(sim,target.unitId,{type:key.toUpperCase(),sourceId:actor.unitId,duration,cycle,parentEventId});return true;}
+ if(effect.stackMode==='STACK'){const existing=findStatus(target,key);const stacks=Math.min(5,(existing?.data?.stacks??0)+1);return Boolean(applyTimedStatus(sim,target.unitId,{key,duration,sourceId:actor.unitId,data:{...(effect.data??{}),stacks},stack:STATUS_STACK.REFRESH,cycle,parentEventId}));}
  if(effect.stackMode==='STACK_SHIELD'){
   const existing=findStatus(target,key);
   const perStack=Math.max(0,Math.min(.95,Number(effect.data?.pct??.15)));
   const maxStacks=Math.max(1,Math.trunc(effect.data?.maxStacks??2));
   const stacks=Math.min(maxStacks,Math.max(0,Math.trunc(existing?.data?.stacks??0))+1);
-  return Boolean(applyTimedStatus(sim,target.unitId,{key,duration:effect.duration,sourceId:actor.unitId,data:{...(effect.data??{}),pctPerStack:perStack,stacks,pct:Math.min(.95,perStack*stacks)},stack:STATUS_STACK.REFRESH,cycle,parentEventId}));
+  return Boolean(applyTimedStatus(sim,target.unitId,{key,duration,sourceId:actor.unitId,data:{...(effect.data??{}),pctPerStack:perStack,stacks,pct:Math.min(.95,perStack*stacks)},stack:STATUS_STACK.REFRESH,cycle,parentEventId}));
  }
- return Boolean(applyTimedStatus(sim,target.unitId,{key,duration:effect.duration,sourceId:actor.unitId,data:effect.data??{},stack:effect.stackMode==='MAX_DURATION'?STATUS_STACK.MAX_DURATION:STATUS_STACK.REFRESH,cycle,parentEventId}));
+ return Boolean(applyTimedStatus(sim,target.unitId,{key,duration,sourceId:actor.unitId,data:effect.data??{},stack:effect.stackMode==='MAX_DURATION'?STATUS_STACK.MAX_DURATION:STATUS_STACK.REFRESH,cycle,parentEventId}));
 }
 function cleanseOne(sim,actor,target,effect,cycle,parentEventId,abilityId=null){
  const before=[...target.statuses]; let removeKeys;

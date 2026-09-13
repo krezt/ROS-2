@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Realm of Shinobi 2.0 — Stage 25X Warrior VFX + Monk Proc</title>
+  <title>Realm of Shinobi 2.0 — Stage 25AG Shieldwall + Snipe + Spectator</title>
   <link rel="stylesheet" href="./styles.css">
   <script src="https://cdn.jsdelivr.net/npm/phaser@3.90.0/dist/phaser.js"></script>
 </head>
@@ -18,7 +18,7 @@
       <div class="round-id"><span>ROUND</span> <strong id="roundNo">—</strong></div>
       <span class="round-separator">—</span>
       <div id="timer">--:--</div>
-      <button id="replaySpeedButton" title="Replay speed">REPLAY 0.33×</button>
+      <button id="replaySpeedButton" title="Replay speed">REPLAY 0.50×</button>
       <button id="timeControlButton">PAUSE</button>
       <button id="drawProposalButton" class="draw-proposal-button hidden" type="button" title="Offer a mutually agreed draw to your opponent">PROPOSE DRAW</button>
       <div id="connection"></div>
@@ -49,7 +49,7 @@
         <div class="panel-heading log-chat-heading">
           <div class="log-chat-tabs" role="tablist" aria-label="Combat log and multiplayer chat">
             <button id="combatLogTabButton" class="log-chat-tab active" type="button" role="tab" aria-selected="true">COMBAT LOG</button>
-            <button id="chatTabButton" class="log-chat-tab" type="button" role="tab" aria-selected="false" disabled>2P CHAT <span id="chatUnreadBadge" class="chat-unread hidden">0</span></button>
+            <button id="chatTabButton" class="log-chat-tab" type="button" role="tab" aria-selected="false" disabled>ROOM CHAT <span id="chatUnreadBadge" class="chat-unread hidden">0</span></button>
           </div>
           <div class="log-chat-actions">
             <button id="clearLogButton">CLEAR</button>
@@ -58,10 +58,10 @@
           </div>
         </div>
         <div id="combatLog"></div>
-        <div id="multiplayerChat" class="multiplayer-chat hidden" role="tabpanel" aria-label="2P room chat">
-          <div id="chatMessages" class="chat-messages"><div class="chat-system">Join a 2P room to chat with your opponent.</div></div>
+        <div id="multiplayerChat" class="multiplayer-chat hidden" role="tabpanel" aria-label="multiplayer room chat">
+          <div id="chatMessages" class="chat-messages"><div class="chat-system">Join or spectate a room to chat.</div></div>
           <form id="chatForm" class="chat-compose">
-            <input id="chatInput" maxlength="240" autocomplete="off" placeholder="Message opponent…" disabled>
+            <input id="chatInput" maxlength="240" autocomplete="off" placeholder="Message room…" disabled>
             <button id="chatSendButton" type="submit" disabled>SEND</button>
           </form>
         </div>
@@ -104,17 +104,17 @@
             <span>HOST REPLAY SPEED</span>
             <div class="network-replay-speed-grid">
               <button type="button" data-network-replay-speed="0.25">0.25×</button>
-              <button type="button" data-network-replay-speed="0.33" class="selected">0.33×</button>
-              <button type="button" data-network-replay-speed="0.5">0.50×</button>
+              <button type="button" data-network-replay-speed="0.33">0.33×</button>
+              <button type="button" data-network-replay-speed="0.5" class="selected">0.50×</button>
             </div>
-            <small>Locked for both players when Player 2 joins.</small>
+            <small>Movement/melee speed. Casts and ability VFX remain at effective 0.33× when 0.50× is selected.</small>
           </div>
           <label class="ban-option"><input type="checkbox" id="draftBanToggle"> Enable <strong>1 draft ban per player</strong></label>
         </div>
 
         <label class="network-label" for="roomId">Room ID</label>
         <input id="roomId" placeholder="room id">
-        <div class="network-room-actions"><button id="createRoomBtn">CREATE ROOM</button><button id="joinRoomBtn">JOIN ROOM</button><button id="refreshRoomsBtn">REFRESH</button></div>
+        <div class="network-room-actions"><button id="createRoomBtn">CREATE ROOM</button><button id="joinRoomBtn">JOIN ROOM</button><button id="spectateRoomBtn">SPECTATE</button><button id="refreshRoomsBtn">REFRESH</button></div>
         <button id="viewRankingsBtn" class="view-rankings-button" type="button">VIEW RANKINGS</button>
         <div id="currentRoomCard" class="current-room-card hidden"></div>
 

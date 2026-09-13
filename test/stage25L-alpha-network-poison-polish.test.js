@@ -41,10 +41,10 @@ test('end-of-round Poison damage across multiple champions replays simultaneousl
   assert.ok(group);assert.equal(group.payload.events.length,2);
 });
 
-test('current Snipe tuning is Range 8 with 5% distance bonus',()=>{
+test('current Snipe tuning is Range 10 with 5% distance bonus and a three-square pre-shot retreat',()=>{
   const snipe=getAbility('Archer','SNIPE');
-  assert.equal(snipe.basicStyle.attackRangeOverride,8);
-  assert.equal(snipe.basicStyle.distanceDamageBonusPerSquare,.05);
+  assert.equal(snipe.basicStyle.attackRangeOverride,10);
+  assert.equal(snipe.basicStyle.distanceDamageBonusPerSquare,.05);assert.equal(snipe.basicStyle.preAttackRetreatSteps,3);
 });
 
 test('Alpha client auto-connects production coordinator and exposes synchronized replay speed controls',()=>{
@@ -54,7 +54,8 @@ test('Alpha client auto-connects production coordinator and exposes synchronized
   assert.doesNotMatch(html,/id="wsUrl"|id="connectBtn"/);
   assert.match(main,/wss:\/\/ros2-coordinator\.onrender\.com\/ws/);
   for(const speed of ['0.25','0.33','0.5'])assert.match(html,new RegExp(`data-network-replay-speed="${speed.replace('.','\\.')}"`));
-  assert.match(scene,/this\.replaySpeed=0\.33/);
+  assert.match(scene,/this\.replaySpeed=0\.5/);
+  assert.match(scene,/vfxReplaySpeed\(\).*Math\.min\(this\.replaySpeed,0\.33\)/s);
   assert.match(scene,/replaySpeedLocked/);
   assert.match(html,/opponentWaitIndicator/);
 });

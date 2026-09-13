@@ -58,9 +58,9 @@ test('Piercing Light is a 7x7 hostile AoE that removes Invisibility from enemies
   assert.equal(findStatus(sim.state.units.G0,'invisible'),null);
 });
 
-test('Arcane Surge grants one-round Shift and Arcane Ward is a 4-cycle five-round Magic Shield',()=>{
+test('Arcane Surge grants random one-to-two-round Shift and Arcane Ward is a 4-cycle five-round Magic Shield',()=>{
   const surge=getAbility('Mage','ARCANE_SURGE'), ward=getAbility('Mage','ARCANE_WARD');
-  assert.equal(surge.effects.find(e=>e.key==='shift')?.duration,1);
+  const shift=surge.effects.find(e=>e.key==='shift');assert.deepEqual([shift?.durationMin,shift?.durationMax],[1,2]);
   assert.equal(ward.completionDelayCycles,4);
   assert.equal(ward.effects.find(e=>e.key==='magic_shield')?.duration,5);
 });
