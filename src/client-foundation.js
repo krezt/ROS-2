@@ -520,6 +520,261 @@ export function describeAuthoritativeEvent(event, state) {
   }
 }
 
+
+function compactUnitName(state, unitId) {
+  if (!unitId) return 'Environment';
+  return state?.units?.[unitId]?.archetypeId ?? unitId;
+}
+
+function compactStatusName(key) {
+  const raw=String(key??'status').toLowerCase();
+  const names={
+    atk_up:'ATK Up',sdm_up:'SDM Up',def_up:'DEF Up',res_up:'RES Up',
+    atk_down:'ATK Down',sdm_down:'SDM Down',def_down:'DEF Down',res_down:'RES Down',rend_def_down:'DEF Down',
+    magic_shield:'Magic Shield',physical_shield:'Physical Shield',divine_shield:'Divine Shield',shield_redirect:'Shieldwall',
+    poison_imbue:'Poison Imbue',bleed_imbue:'Bleed Imbue',shadowstep_crit:'Shadowstep',shinobi_haste:'Haste',
+    arcane_echo:'Arcane Echo',counterstance:'Counterstance',flurry_style:'Flurry',premonition:'Premonition',
+    invisible:'Invisibility',marked:'Marked',spellbreak:'Spellbreak',berserk:'Berserk',stun:'Stun',blind:'Blind',
+    poison:'Poison',bleed:'Bleed',taunt:'Taunt',silence:'Silence',root:'Root',suppression:'Suppression',ward:'Ward',regen:'Regen',shift:'Shift'
+  };
+  return names[raw] ?? raw.replaceAll('_',' ').replace(/\b\w/g,c=>c.toUpperCase());
+}
+
+const PLAYER_LOG_NEGATIVE_STATUSES=new Set(['stun','silence','taunt','berserk','root','suppression','spellbreak','marked','blind','bleed','def_down','rend_def_down','atk_down','sdm_down','res_down']);
+
+/**
+ * Build the default player-facing combat log from the full authoritative event stream.
+ * The detailed/debug formatter above remains available behind the UI's Detailed toggle.
+ *
+ * The compact plan intentionally:
+ * - removes cycle coordinates and unit ids;
+ * - hides scheduler/cast-complete/status-expiry bookkeeping;
+ * - preserves every individual attack hit, miss and dodge in authoritative order;
+ * - highlights critical hits on the exact strike that critted;
+ * - aggregates poison applications and multi-target healing where practical.
+ */
+export function buildPlayerCombatLogPlan(events, state) {
+  const source=Array.isArray(events)?events:[];
+  const byId=new Map(source.map(e=>[e.eventId,e]));
+  const plan=new Map();
+  const add=(eventId,text,kind='system')=>{
+    if(!eventId||!text)return;
+    if(!plan.has(eventId))plan.set(eventId,[]);
+    plan.get(eventId).push(Object.freeze({text,kind}));
+  };
+  const contextRoot=(event)=>{
+    let cur=event;
+    const seen=new Set();
+    while(cur?.parentEventId&&!seen.has(cur.parentEventId)){
+      seen.add(cur.parentEventId);
+      cur=byId.get(cur.parentEventId);
+      if(!cur)break;
+      if(cur.type===EVENT_TYPE.COUNTER||cur.type===EVENT_TYPE.ACTION_START)return cur;
+    }
+    return null;
+  };
+  const actionAbility=(root,event)=>{
+    const actorId=event?.actorId??root?.actorId;
+    const abilityId=event?.payload?.abilityId??root?.payload?.actionId??null;
+    if(!actorId||!abilityId)return null;
+    const archetypeId=state?.units?.[actorId]?.archetypeId;
+    if(!archetypeId)return null;
+    try{return getAbility(archetypeId,abilityId);}catch{return null;}
+  };
+  const contextKey=(root,event)=>root?.eventId??`FREE:${event.eventId}`;
+  const critImpactParents=new Set(source.filter(e=>e.type===EVENT_TYPE.CRIT&&e.parentEventId).map(e=>e.parentEventId));
+  const koByDamageId=new Map(source.filter(e=>e.type===EVENT_TYPE.KO&&e.parentEventId).map(e=>[e.parentEventId,e]));
+  const linkedKoIds=new Set(koByDamageId.values().map(e=>e.eventId));
+  const healGroups=new Map(), poisonGroups=new Map(), statusGroups=new Map();
+
+  const group=(map,key,init)=>{if(!map.has(key))map.set(key,init());return map.get(key);};
+
+  for(const event of source){
+    const p=event.payload??{};
+    const root=contextRoot(event);
+    const actor=compactUnitName(state,event.actorId),target=compactUnitName(state,event.targetId);
+    const ability=actionAbility(root,event);
+    const abilityId=p.abilityId??root?.payload?.actionId??null;
+    const abilityName=ability?.label??(abilityId?displayActionName(state,event.actorId,abilityId):'');
+
+    if(event.type===EVENT_TYPE.DAMAGE){
+      if(String(p.source??'').toUpperCase()==='STATUS_TICK'){
+        const label=String(p.damageType??'status').toLowerCase()==='poison'?'Poison':compactStatusName(p.damageType);
+        const ko=koByDamageId.get(event.eventId);
+        add(event.eventId,`${label} hits ${target} for ${p.amount??'?'} damage${ko?' — KO!':''}.`,`combat ${String(p.damageType??'physical').toLowerCase()}`);
+        continue;
+      }
+      const procLabel=p.procLabel??'';
+      const critical=critImpactParents.has(event.parentEventId);
+      const killed=koByDamageId.has(event.eventId);
+      const isCounter=root?.type===EVENT_TYPE.COUNTER;
+      const plainAttack=abilityName==='Attack'&&!procLabel;
+      let lead;
+      if(procLabel)lead=`${actor}'s ${procLabel} procs on ${target}`;
+      else if(isCounter)lead=`${actor} counters ${target}`;
+      else if(plainAttack)lead=`${actor} attacks ${target}`;
+      else lead=`${actor}'s ${abilityName||'attack'} hits ${target}`;
+      const critPrefix=critical?'CRITICAL! ':'';
+      const type=String(p.damageType??'physical').toLowerCase();
+      add(event.eventId,`${critPrefix}${lead} for ${p.amount??'?'} ${type} damage${killed?' — KO!':''}.`,critical?'critical':`combat ${type}`);
+      continue;
+    }
+
+    if(event.type===EVENT_TYPE.MISS||event.type===EVENT_TYPE.DODGE){
+      const isCounter=root?.type===EVENT_TYPE.COUNTER;
+      const plainAttack=abilityName==='Attack';
+      const attackName=isCounter?'counter':(plainAttack?'attack':(abilityName||'attack'));
+      if(event.type===EVENT_TYPE.DODGE)add(event.eventId,`${target} dodges ${actor}'s ${attackName}.`,'combat');
+      else add(event.eventId,`${actor}'s ${attackName} misses ${target}.`,'combat');
+      continue;
+    }
+
+    if(event.type===EVENT_TYPE.HEAL){
+      if(p.blockedByBleed){
+        add(event.eventId,`Bleed prevents ${target} from healing${abilityName?` with ${abilityName}`:''}.`,'status bleed');
+        continue;
+      }
+      const amount=Number(p.amount??0);if(amount<=0)continue;
+      const procLabel=p.procLabel??'';
+      const key=`${contextKey(root,event)}|${event.actorId??''}|${abilityId??''}|${procLabel}`;
+      const g=group(healGroups,key,()=>({root,actorId:event.actorId,abilityId,abilityName,procLabel,targets:[],total:0,lastEventId:event.eventId}));
+      g.targets.push({id:event.targetId,name:target,amount});g.total+=amount;g.lastEventId=event.eventId;
+      continue;
+    }
+
+    if(event.type===EVENT_TYPE.STATUS_APPLY){
+      const keyName=String(p.key??'').toLowerCase();
+      if(keyName==='poison'&&Number.isFinite(p.contribution?.amount)){
+        const key=`${contextKey(root,event)}|${event.actorId??''}|${event.targetId??''}|${abilityId??''}`;
+        const g=group(poisonGroups,key,()=>({root,actorId:event.actorId,targetId:event.targetId,abilityId,abilityName,totalAdded:0,lastTotal:null,lastEventId:event.eventId}));
+        g.totalAdded+=Number(p.contribution.amount);if(Number.isFinite(p.total))g.lastTotal=p.total;g.lastEventId=event.eventId;
+        continue;
+      }
+      const isProc=p.data?.proc===true;
+      if(!PLAYER_LOG_NEGATIVE_STATUSES.has(keyName)&&!isProc)continue;
+      const key=`${contextKey(root,event)}|${event.actorId??''}|${keyName}|${p.data?.procLabel??''}|${p.duration??''}`;
+      const g=group(statusGroups,key,()=>({root,actorId:event.actorId,key:keyName,duration:p.duration,procLabel:p.data?.procLabel??'',targets:new Map(),lastEventId:event.eventId}));
+      const prev=g.targets.get(event.targetId)??0;g.targets.set(event.targetId,prev+1);g.lastEventId=event.eventId;
+      continue;
+    }
+
+    switch(event.type){
+      case EVENT_TYPE.ROUND_START:
+        add(event.eventId,`— ROUND ${p.roundNumber??state?.roundNumber??''} —`,'round');
+        break;
+      case EVENT_TYPE.ACTION_START: {
+        const a=actionAbility(event,event);
+        if(!a)break;
+        const isPlainAttack=a.actionKind===ACTION_KIND.BASIC_ATTACK&&a.label==='Attack';
+        if(isPlainAttack||a.actionKind===ACTION_KIND.HOLD)break;
+        let verb='uses';
+        if(a.actionKind===ACTION_KIND.SPELL)verb='casts';
+        else if(a.actionKind===ACTION_KIND.BASIC_ATTACK)verb='uses';
+        const targetPart=event.targetId&&event.targetId!==event.actorId?` on ${target}`:'';
+        add(event.eventId,`${actor} ${verb} ${a.label}${targetPart}.`,'action');
+        break;
+      }
+      case EVENT_TYPE.COUNTER:
+        // Counter outcome is folded into the resulting hit/miss summary.
+        break;
+      case EVENT_TYPE.INTERCEPT:
+        add(event.eventId,`${actor} intercepts the attack for ${target}.`,'action');
+        break;
+      case EVENT_TYPE.BLOCK: {
+        const reason=String(p.reason??'').toUpperCase();
+        if(reason==='STATUS_RESIST')add(event.eventId,`${target} resists ${compactStatusName(p.blockedStatusKey)}!`,'status control');
+        else if(reason==='WARD')add(event.eventId,`${target}'s Ward blocks ${compactStatusName(p.blockedStatusKey)}.`,'status positive');
+        else if(reason==='SPELLBREAK')add(event.eventId,`Spellbreak interrupts ${target}'s spell!`,'status control');
+        else add(event.eventId,`${target} blocks the effect.`,'combat');
+        break;
+      }
+      case EVENT_TYPE.STATUS_REMOVE: {
+        const status=compactStatusName(p.key);
+        if(p.reason==='CLEANSE')add(event.eventId,`${actor} cleanses ${status} from ${target}.`,'status positive');
+        else if(p.reason==='DISPEL')add(event.eventId,`${actor} dispels ${status} from ${target}.`,'status negative');
+        else if(p.reason==='STRIP_BENEFICIAL'||p.reason==='STRIP_DEFENSIVE_BUFF')add(event.eventId,`${actor} strips ${status} from ${target}.`,'status negative');
+        else if(p.reason==='PIERCING_LIGHT_REVEAL')add(event.eventId,`${actor} reveals ${target}.`,'status negative');
+        else if(p.reason==='PHYSICAL_ATTACK_REVEAL')add(event.eventId,`${target} becomes visible.`,'status negative');
+        else if(p.reason==='CONSUMED_BLOCKING_STATUS'&&String(p.key??'').toLowerCase()==='ward')add(event.eventId,`${target}'s Ward is consumed.`,'status positive');
+        break;
+      }
+      case EVENT_TYPE.CAST_INTERRUPT:
+        add(event.eventId,`${actor}'s ${abilityName||'spell'} is interrupted${p.reason?` (${String(p.reason).replaceAll('_',' ').toLowerCase()})`:''}.`,'action');
+        break;
+      case EVENT_TYPE.CAST_FIZZLE:
+        add(event.eventId,`${actor}'s ${abilityName||'spell'} fizzles${p.reason?` (${String(p.reason).replaceAll('_',' ').toLowerCase()})`:''}.`,'action');
+        break;
+      case EVENT_TYPE.TELEPORT:
+        add(event.eventId,`${target!=='Environment'?target:actor} shifts to a new position.`,'action');
+        break;
+      case EVENT_TYPE.RESURRECT:
+        add(event.eventId,`${actor} resurrects ${target} with ${p.hp??'?'} HP.`,'heal');
+        break;
+      case EVENT_TYPE.SUMMON:
+        add(event.eventId,`${actor} summons ${p.label??'an ally'}.`,'action');
+        break;
+      case EVENT_TYPE.KO:
+        if(!linkedKoIds.has(event.eventId))add(event.eventId,`${target} is KO'd${event.actorId?` by ${actor}`:''}!`,'critical');
+        break;
+      default: break;
+    }
+  }
+
+  for(const g of healGroups.values()){
+    const actor=compactUnitName(state,g.actorId);
+    const source=g.procLabel||g.abilityName||'healing';
+    const positive=g.targets.filter(t=>t.amount>0);
+    if(!positive.length)continue;
+    if(positive.length===1){
+      add(g.lastEventId,`${source} heals ${positive[0].name} for ${positive[0].amount} HP.`,'heal');
+    }else{
+      const detail=positive.map(t=>`${t.name} ${t.amount}`).join(', ');
+      add(g.lastEventId,`${actor}'s ${source} heals ${detail} (${g.total} total).`,'heal');
+    }
+  }
+
+  for(const g of poisonGroups.values()){
+    const actor=compactUnitName(state,g.actorId),target=compactUnitName(state,g.targetId);
+    const source=g.abilityName||'attack';
+    const totalPart=Number.isFinite(g.lastTotal)?` (${g.lastTotal} total)`:'';
+    add(g.lastEventId,`${actor}'s ${source} adds ${g.totalAdded} Poison to ${target}${totalPart}.`,'status poison');
+  }
+
+  for(const g of statusGroups.values()){
+    const status=compactStatusName(g.key),actor=compactUnitName(state,g.actorId);
+    const names=[...g.targets.keys()].map(id=>compactUnitName(state,id));
+    const totalApplications=[...g.targets.values()].reduce((a,b)=>a+b,0);
+    const rounds=Number.isFinite(g.duration)?` for ${g.duration} round${g.duration===1?'':'s'}`:'';
+    let text;
+    if(g.procLabel){
+      const targetText=names.length===1?names[0]:names.join(', ');
+      text=`${actor} procs ${g.procLabel} on ${targetText}: ${status}${totalApplications>1?` ×${totalApplications}`:''}${rounds}.`;
+    }else if(g.key==='blind'){
+      text=`${names.join(' and ')} ${names.length===1?'is':'are'} Blinded${rounds}.`;
+    }else if(g.key==='stun'){
+      text=`${names.join(' and ')} ${names.length===1?'is':'are'} Stunned${rounds}.`;
+    }else if(g.key==='marked'){
+      text=`${names.join(' and ')} ${names.length===1?'is':'are'} Marked${rounds}.`;
+    }else if(g.key==='taunt'){
+      text=`${actor} Taunts ${names.join(' and ')}${rounds}.`;
+    }else if(g.key==='berserk'){
+      text=`${names.join(' and ')} ${names.length===1?'is':'are'} Berserked${rounds}.`;
+    }else if(g.key==='spellbreak'){
+      text=`${names.join(' and ')} ${names.length===1?'is':'are'} afflicted by Spellbreak${rounds}.`;
+    }else if(g.key==='bleed'){
+      text=`${actor} inflicts Bleed on ${names.join(' and ')}${rounds}.`;
+    }else if(['def_down','rend_def_down','res_down','atk_down','sdm_down'].includes(g.key)){
+      text=`${names.join(' and ')} suffer${names.length===1?'s':''} ${status}${totalApplications>1?` ×${totalApplications}`:''}${rounds}.`;
+    }else{
+      text=`${names.join(' and ')} gain${names.length===1?'s':''} ${status}${rounds}.`;
+    }
+    const controlKeys=new Set(['stun','silence','taunt','berserk','root','suppression','spellbreak']);
+    add(g.lastEventId,text,controlKeys.has(g.key)?'status control':(PLAYER_LOG_NEGATIVE_STATUSES.has(g.key)?'status negative':'status positive'));
+  }
+
+  return plan;
+}
+
 export function combatLogClassForEvent(event) {
   switch(event?.type){
     case EVENT_TYPE.DAMAGE: return `combat ${String(event.payload?.damageType??'PHYSICAL').toLowerCase()}`;

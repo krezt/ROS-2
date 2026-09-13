@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Realm of Shinobi 2.0 — Stage 25AG Shieldwall + Snipe + Spectator</title>
+  <title>Realm of Shinobi 2.0 — Stage 25AH Player Combat Log</title>
   <link rel="stylesheet" href="./styles.css">
   <script src="https://cdn.jsdelivr.net/npm/phaser@3.90.0/dist/phaser.js"></script>
 </head>
@@ -52,6 +52,7 @@
             <button id="chatTabButton" class="log-chat-tab" type="button" role="tab" aria-selected="false" disabled>ROOM CHAT <span id="chatUnreadBadge" class="chat-unread hidden">0</span></button>
           </div>
           <div class="log-chat-actions">
+            <label class="combat-log-detail-toggle" title="Show cycle numbers, unit IDs, network handshakes, status bookkeeping and other diagnostic detail"><input id="combatLogDetailedToggle" type="checkbox"> DETAILED</label>
             <button id="clearLogButton">CLEAR</button>
             <button id="combatLogCollapseButton" type="button" aria-expanded="true" aria-controls="combatLog">MINIMIZE</button>
             <button id="chatCollapseButton" class="hidden" type="button" aria-expanded="true" aria-controls="multiplayerChat">COLLAPSE</button>

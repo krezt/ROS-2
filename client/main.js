@@ -36,7 +36,8 @@ q('submitButton').onclick=()=>scene.submitActions(false);
 q('cancelTargetButton').onclick=()=>scene.cancelTargeting();
 q('timeControlButton').onclick=()=>scene.handleTimeControl();
 q('replaySpeedButton').onclick=()=>handleReplaySpeedButton();
-q('clearLogButton').onclick=()=>{q('combatLog').innerHTML='';};
+q('clearLogButton').onclick=()=>scene.clearCombatLog();
+q('combatLogDetailedToggle').onchange=event=>scene.setCombatLogDetailed(Boolean(event.target.checked));
 q('combatLogCollapseButton').onclick=()=>setCombatLogCollapsed(!combatLogCollapsed);
 q('chatCollapseButton').onclick=()=>setChatCollapsed(!chatCollapsed);
 q('combatLogTabButton').onclick=()=>setLogChatTab('combat');
@@ -393,7 +394,7 @@ async function handleNetworkMessage(msg){
   if(msg.kind==='chat_message'){appendChatMessage(msg);return;}
   if(msg.kind==='player_names'){if(currentRoom&&currentRoom.id===msg.roomId){currentRoom.playerNames=msg.playerNames??currentRoom.playerNames;renderCurrentRoom();if(networkDraftState)renderNetworkDraft();}return;}
   q('connection').textContent=`${msg.kind}${msg.side?` • Side ${msg.side}`:''}${msg.roomId?` • ${msg.roomId}`:''}`;
-  scene.log(`[NET] ${msg.kind}`,'system');
+  scene.log(`[NET] ${msg.kind}`,'system',{visibility:'detailed'});
   if(msg.kind==='hello_ack'){
     q('lobbyConnectionBadge').textContent='ONLINE';q('lobbyConnectionBadge').className='lobby-badge online';
     setLobbyStatus(`Connected automatically to ${COORDINATOR_URL}. Create a configured room or join an advertised room.`);

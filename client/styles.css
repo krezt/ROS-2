@@ -302,3 +302,6 @@ aside{height:auto;overflow:visible;min-width:0;margin:0;grid-area:auto!important
 .combat-log-panel.combat-log-collapsed .log-chat-heading{margin-bottom:0}
 
 .room-entry-actions{display:flex;gap:4px;align-items:center}.room-entry .spectate-room-button{background:#34245f;border-color:#7454b5;color:#eadfff;font-weight:900}.room-entry .spectate-room-button:hover:not(:disabled){background:#4a327f;border-color:#9a77d8}.room-entry.spectatable-room{border-color:#59447e;box-shadow:0 0 0 1px #5d3e8a33 inset}
+
+/* Stage 25AH — player-facing combat log with optional diagnostic detail */
+.combat-log-detail-toggle{display:flex;align-items:center;gap:4px;padding:3px 5px;border:1px solid #3e536f;border-radius:4px;background:#0e1621;color:#9fb2ce;font-size:9px;font-weight:700;white-space:nowrap;cursor:pointer;user-select:none}.combat-log-detail-toggle:hover{color:#e4efff;border-color:#607b9e}.combat-log-detail-toggle input{margin:0;accent-color:#6f93c2}.log-line.action{color:#a9d7ff}.log-line.round{letter-spacing:.4px}.log-line.critical{color:#ffe073;font-weight:800}

@@ -13,6 +13,7 @@ import {
   isImmediateTargetType,
   targetForImmediateAbility,
   describeAuthoritativeEvent,
+  buildPlayerCombatLogPlan,
   combatLogClassForEvent,
   hasControlImpairment,
   shouldFloatStatusFeedback,
@@ -60,6 +61,9 @@ export class RosBattleScene extends Phaser.Scene {
     this.replayEventById=new Map();
     this.loggedReplayEventIds=new Set();
     this.replayLogState=null;
+    this.playerCombatLogPlan=new Map();
+    this.combatLogEntries=[];
+    this.combatLogDetailed=false;
     this.timeoutsRemaining=3;
     this.replaySpeed=0.5;
     this.replaySpeedLocked=false;
@@ -183,9 +187,9 @@ export class RosBattleScene extends Phaser.Scene {
     this.setWaitingForOpponent(false);
     this.networkRoundResult=null;this.spectatorPendingRoundPackage=null;this.busy=false;this.session=null;this.pendingAbility=null;this.selectedActorId=null;this.inspectedUnitId=null;
     this.match=null;this.stateView=null;this.matchStats=null;this.matchOutcomeShown=false;
-    this.replayEventById?.clear?.();this.loggedReplayEventIds?.clear?.();this.replayLogState=null;
+    this.replayEventById?.clear?.();this.loggedReplayEventIds?.clear?.();this.replayLogState=null;this.playerCombatLogPlan?.clear?.();
     this.clearPreview();if(clearBattlefield)this.clearBattlefield();
-    if(clearCombatLog){const log=document.getElementById('combatLog');if(log)log.innerHTML='';}
+    if(clearCombatLog)this.clearCombatLog();
     const round=document.getElementById('roundNo');if(round)round.textContent='—';
     const timer=document.getElementById('timer');if(timer){timer.textContent='--:--';timer.classList.remove('danger');}
     const count=document.getElementById('assignedCount');if(count)count.textContent='0 / 0';
@@ -283,14 +287,15 @@ export class RosBattleScene extends Phaser.Scene {
     this.loadState(this.match.state);
     this.newSelectionSession();
     const label=`${teamA.length}v${teamB.length}`;
-    this.log(`1P ${source} ${label} ready with Tactical AI. Choose a champion from the sidebar, then assign an action. Movement/melee replay defaults to 0.50×; casts and ability VFX remain at an effective 0.33×.`,'system');
+    this.log(`1P ${label} match ready.`,'system',{visibility:'concise'});
+    this.log(`1P ${source} ${label} ready with Tactical AI. Choose a champion from the sidebar, then assign an action. Movement/melee replay defaults to 0.50×; casts and ability VFX remain at an effective 0.33×.`,'system',{visibility:'detailed'});
     this.setStatus(`1P ${label}. Choose ${this.session.actorIds.length} action${this.session.actorIds.length===1?'':'s'}.`);
   }
 
   setMode(mode){
     if(mode==='SINGLE_PLAYER'){this.mode='SINGLE_PLAYER';return;}
     this.prepareForNewMatch();this.mode=mode;
-    this.log('2P network mode enabled. The production coordinator connects automatically.','system');
+    this.log('2P network mode enabled. The production coordinator connects automatically.','system',{visibility:'detailed'});
     this.setStatus('Connecting automatically to the multiplayer coordinator. Create or join a room when the lobby is online.');
   }
   setNetworkSocket(socket){this.networkSocket=socket;this.updateTimeControl();}
@@ -303,7 +308,8 @@ export class RosBattleScene extends Phaser.Scene {
     this.stateView=createTeamBattleState({teamA:check.teamA,teamB:check.teamB,matchId});
     this.resetMatchStats(this.stateView);
     this.loadState(this.stateView);this.newSelectionSession();
-    this.log(`2P match ${matchId} started as Side ${side} (${check.teamSize}v${check.teamSize}).`,'system');
+    this.log(`${check.teamSize}v${check.teamSize} match started — you are Side ${side}.`,'system',{visibility:'concise'});
+    this.log(`2P match ${matchId} started as Side ${side} (${check.teamSize}v${check.teamSize}).`,'system',{visibility:'detailed'});
     this.setStatus(`Side ${side}: choose ${this.session.actorIds.length} action${this.session.actorIds.length===1?'':'s'}.`);this.updateTimeControl();
   }
 
@@ -327,7 +333,8 @@ export class RosBattleScene extends Phaser.Scene {
     this.stateView=state;this.spectatorPendingRoundPackage=pendingRoundPackage??null;
     this.loadState(this.stateView);this.session=null;this.busy=true;this.emitSelectionUi();this.updateTimeControl();
     const rounds=history.length;
-    this.log(`Spectator joined match ${matchId} (${check.teamSize}v${check.teamSize})${rounds?` after ${rounds} confirmed round${rounds===1?'':'s'}`:''}.`,'system');
+    this.log(`Spectating ${check.teamSize}v${check.teamSize} match${rounds?` from Round ${this.stateView.roundNumber}`:''}.`,'system',{visibility:'concise'});
+    this.log(`Spectator joined match ${matchId} (${check.teamSize}v${check.teamSize})${rounds?` after ${rounds} confirmed round${rounds===1?'':'s'}`:''}.`,'system',{visibility:'detailed'});
     this.setStatus(this.stateView.outcome.status==='COMPLETE'?`Spectating completed match — Side ${this.stateView.outcome.winner??'—'} won.`:`Spectating live match — Round ${this.stateView.roundNumber}.`);
   }
 
@@ -371,7 +378,7 @@ export class RosBattleScene extends Phaser.Scene {
     if(!['PVP','SPECTATOR'].includes(this.mode))return;this.setWaitingForOpponent(false);
     try{
       this.networkRoundResult=simulateRosterRoundPackage({baseState:this.stateView,roundPackage:pkg});
-      this.log(`Round package ${pkg.roundNumber}: seed ${pkg.gameplaySeed}; ${this.networkRoundResult.events.length} events.`,'system');
+      this.log(`Round package ${pkg.roundNumber}: seed ${pkg.gameplaySeed}; ${this.networkRoundResult.events.length} events.`,'system',{visibility:'detailed'});
       this.networkSocket?.submitDigest(this.networkRoundResult.digest);
       this.setStatus('Simulation complete. Waiting for opponent digest confirmation…');
     }catch(err){this.setStatus(`Network simulation error: ${err.message}`);}
@@ -392,7 +399,7 @@ export class RosBattleScene extends Phaser.Scene {
     const replay=new ReplayController({events:result.events,adapter:this.makePresentationAdapter()});
     await replay.playAll();
     this.stateView=cloneBattleState(result.sim.state);this.syncHud();this.recordConfirmedRound(result.events,result.sim.state.roundNumber);
-    this.log(`ROUND CONFIRMED — ${result.digest.finalStateHash.slice(0,8)} / ${result.digest.eventStreamHash.slice(0,8)}.`,'system');
+    this.log(`ROUND CONFIRMED — ${result.digest.finalStateHash.slice(0,8)} / ${result.digest.eventStreamHash.slice(0,8)}.`,'system',{visibility:'detailed'});
     if(result.sim.state.outcome.status==='COMPLETE'){
       const outcome=structuredClone(result.sim.state.outcome),roundNumber=result.digest.roundNumber;this.networkRoundResult=null;this.busy=false;this.showMatchComplete(outcome);
       return {complete:true,outcome,roundNumber,digest:result.digest};
@@ -812,13 +819,13 @@ export class RosBattleScene extends Phaser.Scene {
       this.setStatus(timeout?'Timer expired — missing actions became HOLD.':'Actions locked. Simulating authoritative round…');
       const roundStartState=cloneBattleState(this.match.state);
       const result=this.match.resolveRound(decls);
-      this.log(`Round ${this.match.state.roundNumber}: seed ${result.roundPackage.gameplaySeed}; ${result.events.length} authoritative events.`,'system');
+      this.log(`Round ${this.match.state.roundNumber}: seed ${result.roundPackage.gameplaySeed}; ${result.events.length} authoritative events.`,'system',{visibility:'detailed'});
       this.prepareReplayLog(result.events,roundStartState);
       const replay=new ReplayController({events:result.events,adapter:this.makePresentationAdapter()});
       await replay.playAll();
       this.stateView=structuredClone(result.sim.state);this.syncHud();
       this.recordConfirmedRound(result.events,result.sim.state.roundNumber);
-      this.log(`ROUND CONFIRMED — state ${result.digest.finalStateHash.slice(0,8)} / events ${result.digest.eventStreamHash.slice(0,8)}.`,'system');
+      this.log(`ROUND CONFIRMED — state ${result.digest.finalStateHash.slice(0,8)} / events ${result.digest.eventStreamHash.slice(0,8)}.`,'system',{visibility:'detailed'});
       if(result.sim.state.outcome.status==='COMPLETE'){
         this.showMatchComplete(result.sim.state.outcome);return;
       }
@@ -831,6 +838,7 @@ export class RosBattleScene extends Phaser.Scene {
   prepareReplayLog(events,state){
     this.replayEventById=new Map(events.map(e=>[e.eventId,e]));
     this.loggedReplayEventIds=new Set();this.replayLogState=structuredClone(state);
+    this.playerCombatLogPlan=buildPlayerCombatLogPlan(events,this.replayLogState);
     // Presentation-only: Power Strikes A1 fires once, at the Warrior's first actual attack priority.
     this.powerStrikesPriorityFxShown=new Set();
   }
@@ -839,8 +847,10 @@ export class RosBattleScene extends Phaser.Scene {
     if(!id||this.loggedReplayEventIds.has(id))return;
     this.loggedReplayEventIds.add(id);
     const event=this.replayEventById.get(id);if(!event)return;
-    const text=describeAuthoritativeEvent(event,this.replayLogState);
-    if(text)this.log(text,combatLogClassForEvent(event));
+    const playerLines=this.playerCombatLogPlan?.get(id)??[];
+    for(const line of playerLines)this.log(line.text,line.kind,{visibility:'concise'});
+    const detailText=describeAuthoritativeEvent(event,this.replayLogState);
+    if(detailText)this.log(detailText,combatLogClassForEvent(event),{visibility:'detailed'});
   }
 
   logReplayCommand(command){this.logReplayEventId(command?.sourceEventId);}
@@ -2307,8 +2317,39 @@ export class RosBattleScene extends Phaser.Scene {
   }
 
   setStatus(text){document.getElementById('statusLine').textContent=text;}
-  log(text,kind='system'){
+
+  setCombatLogDetailed(enabled){
+    this.combatLogDetailed=Boolean(enabled);
+    this.renderCombatLogHistory();
+  }
+
+  clearCombatLog(){
+    this.combatLogEntries=[];
+    const box=document.getElementById('combatLog');if(box)box.innerHTML='';
+  }
+
+  shouldRenderLogEntry(entry){
+    if(entry.visibility==='always')return true;
+    return this.combatLogDetailed?entry.visibility==='detailed':entry.visibility==='concise';
+  }
+
+  appendCombatLogEntry(entry,box=document.getElementById('combatLog')){
+    if(!box||!this.shouldRenderLogEntry(entry))return;
+    const line=document.createElement('div');line.className=`log-line ${entry.kind}`;line.textContent=entry.text;box.appendChild(line);
+  }
+
+  renderCombatLogHistory(){
     const box=document.getElementById('combatLog');if(!box)return;
-    const line=document.createElement('div');line.className=`log-line ${kind}`;line.textContent=text;box.appendChild(line);box.scrollTop=box.scrollHeight;
+    box.innerHTML='';
+    for(const entry of this.combatLogEntries)this.appendCombatLogEntry(entry,box);
+    box.scrollTop=box.scrollHeight;
+  }
+
+  log(text,kind='system',{visibility='always'}={}){
+    if(!text)return;
+    const entry=Object.freeze({text:String(text),kind,visibility});
+    this.combatLogEntries.push(entry);
+    if(this.combatLogEntries.length>4000)this.combatLogEntries.splice(0,this.combatLogEntries.length-4000);
+    const box=document.getElementById('combatLog');this.appendCombatLogEntry(entry,box);if(box)box.scrollTop=box.scrollHeight;
   }
 }

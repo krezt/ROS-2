@@ -1,9 +1,9 @@
 {
   "name": "ros2-simulation-core",
-  "version": "0.25.33-stage25ag-shieldwall-snipe-shift-spectator",
+  "version": "0.25.35-stage25ai-per-attack-combat-log",
   "private": true,
   "type": "module",
-  "description": "Realm of Shinobi 2.0 deterministic combat — Stage 25AG Shieldwall ranged intercept, Snipe reposition tuning, Shift reactions, War Cry sustain, spectator discovery",
+  "description": "Realm of Shinobi 2.0 deterministic combat — Stage 25AI concise player log with per-attack hit/miss/dodge/crit visibility",
   "scripts": {
     "test": "node --test",
     "demo": "node demo/stage23-demo.js",

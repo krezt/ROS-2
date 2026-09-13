@@ -1,3 +1,20 @@
+
+## Stage 25AI — Per-Attack Player Combat Log
+
+Stage 25AI keeps the concise player-facing combat log from Stage 25AH, but restores one visible log line for every individual attack result. Every landed hit, crit, miss, dodge and counter result is shown in authoritative event order so priority-cycle interleaving remains readable. Network/debug bookkeeping, redundant cast-complete messages, routine buff spam, and other low-value diagnostic noise remain hidden unless **DETAILED** is checked.
+
+# Realm of Shinobi 2.0 — Stage 25AH
+
+Stage 25AH preserves the complete Stage 25AG gameplay, spectator mode, replay timing split, VFX, balance and deterministic multiplayer behavior while replacing the debug-heavy default Combat Log with a concise player-facing presentation.
+
+- **Concise by default:** cycle coordinates, internal unit ids, network handshakes, package seeds/hashes, `action completes`, spell-resolution bookkeeping, routine buff spam, routine expirations and Poison-decay bookkeeping are hidden from the normal player log.
+- **Action-first language:** important declarations read naturally (for example `Mystic casts Stun on Mage.`), followed by meaningful outcomes such as `Mage resists Stun!`.
+- **Multi-hit aggregation:** repeated weapon swings are summarized into one result showing hits, total damage, crits, dodges and misses instead of one line per swing. Counters are similarly condensed.
+- **Useful status reporting:** control/debuff applications, Poison added, cleanses/dispels, wards, interrupts, KOs, healing and status-tick damage remain visible; predictable internal buff/status bookkeeping is suppressed.
+- **Optional `DETAILED` checkbox:** instantly switches the whole retained log history back to the original diagnostic format with cycle numbers, unit ids, mitigation, network messages, hashes and full status bookkeeping. Switching back restores the concise view.
+- **No simulation/network rule changes:** the upgrade is presentation-only and does not alter authoritative events, hashes, replay order, AI, balance, VFX timing or multiplayer behavior.
+- Full automated suite: **693/693 passing**.
+
 # Realm of Shinobi 2.0 — Stage 25AG
 
 Stage 25AG preserves Stage 25AF spectator/replay timing and the Stage 25AE balance overhaul while fixing Shieldwall interception for ranged physical weapon hits and adding the requested Snipe/Shift/War Cry refinements.
