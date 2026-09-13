@@ -1512,7 +1512,9 @@ export class RosBattleScene extends Phaser.Scene {
       [PRESENTATION_COMMAND.BLOCK_FEEDBACK]:run(c=>this.blockFeedback(c)),
       [PRESENTATION_COMMAND.KO_FEEDBACK]:run(c=>this.koUnit(c.targetId)),
       [PRESENTATION_COMMAND.RESURRECT_FEEDBACK]:run(c=>this.resurrectUnit(c.targetId,c.payload)),
-      [PRESENTATION_COMMAND.CRIT_FEEDBACK]:run(c=>this.floatText(c.targetId,'CRIT!','#ffe36d')),
+      // Keep the authoritative CRIT event available to Detailed logging, but do not
+      // show a redundant CRIT! popup. The exact damage number is colored gold instead.
+      [PRESENTATION_COMMAND.CRIT_FEEDBACK]:logOnly,
       '*':logOnly
     }});
   }
@@ -2122,11 +2124,12 @@ export class RosBattleScene extends Phaser.Scene {
     // Electromancer's Lightning Bolt passive is a separate damage event immediately after
     // the physical hit. Give that proc its own explicit overhead-number presentation so it
     // cannot visually disappear into the ordinary strike feedback.
+    const critical=command.payload?.critical===true;
     const feedback=[this.floatText(
       command.targetId,
       `-${command.payload.amount??'DMG'}`,
-      electroProc?'#66ddff':(colors[type]??'#f4f6fa'),
-      electroProc?{yOffset:8,duration:380}:{}
+      critical?'#ffe36d':(electroProc?'#66ddff':(colors[type]??'#f4f6fa')),
+      electroProc&&!critical?{yOffset:8,duration:380}:{}
     )];
     if(ability==='CHAIN_LIGHTNING' && command.actorId && command.targetId){
       if(!this.lastChainLightningTargetByActor)this.lastChainLightningTargetByActor=new Map();

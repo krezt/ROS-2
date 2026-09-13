@@ -20,7 +20,7 @@ test('Stage 25AH player log turns cast bookkeeping into concise action + outcome
     {eventId:'E6',sequence:5,parentEventId:null,initiativeCycle:2,type:EVENT_TYPE.ROUND_END,actorId:null,targetId:null,payload:{roundNumber:1}}
   ];
   const lines=flatten(buildPlayerCombatLogPlan(events,s),events);
-  assert.deepEqual(lines,['— ROUND 1 —','Mystic casts Stun on Mage.','Mage resists Stun!']);
+  assert.deepEqual(lines,['— ROUND 1 —','Mystic casts Stun on Mage — Mage resists!']);
   assert.equal(lines.some(x=>/\[C\d+\]|\(H0\)|\(G0\)|completes|ROUND CONFIRMED/i.test(x)),false);
 });
 

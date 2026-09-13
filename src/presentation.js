@@ -211,6 +211,34 @@ export function validateAuthoritativeEventStream(events) {
   return true;
 }
 
+
+function criticalDamageEventIds(events){
+  const source=Array.isArray(events)?events:[];
+  const byId=new Map(source.map(e=>[e.eventId,e]));
+  const claimed=new Set(),critical=new Set();
+  const matches=(crit,e)=>{
+    if(!e||e.type!==EVENT_TYPE.DAMAGE||claimed.has(e.eventId))return false;
+    if(e.actorId!==crit.actorId||e.targetId!==crit.targetId)return false;
+    const cp=crit.payload??{},ep=e.payload??{};
+    if(cp.abilityId!=null&&ep.abilityId!==cp.abilityId)return false;
+    if(cp.procLabel!=null&&ep.procLabel!==cp.procLabel)return false;
+    return true;
+  };
+  for(let i=0;i<source.length;i++){
+    const crit=source[i];if(crit?.type!==EVENT_TYPE.CRIT)continue;
+    const direct=crit.parentEventId?byId.get(crit.parentEventId):null;
+    if(matches(crit,direct)){critical.add(direct.eventId);claimed.add(direct.eventId);continue;}
+    for(let j=i+1;j<source.length;j++){
+      const e=source[j];
+      if(e.initiativeCycle!==crit.initiativeCycle && e.sequence>crit.sequence+12)break;
+      if(!matches(crit,e))continue;
+      if(crit.parentEventId&&e.parentEventId!==crit.parentEventId)continue;
+      critical.add(e.eventId);claimed.add(e.eventId);break;
+    }
+  }
+  return critical;
+}
+
 function simultaneousFeedbackCommand(groupEvents) {
   const first=groupEvents[0];
   return Object.freeze({
@@ -256,13 +284,17 @@ function presentationGroupKey(event){
 
 export function buildPresentationTimeline(events) {
   validateAuthoritativeEventStream(events);
+  const criticalDamageIds=criticalDamageEventIds(events);
+  const projected=events.map(event=>criticalDamageIds.has(event.eventId)
+    ? Object.freeze({...event,payload:Object.freeze({...event.payload,critical:true})})
+    : event);
   const grouped=new Map();
-  for(const event of events){
+  for(const event of projected){
     const group=presentationGroupKey(event);
     if(group){if(!grouped.has(group))grouped.set(group,[]);grouped.get(group).push(event);}
   }
   const emittedGroups=new Set(),commands=[];
-  for(const event of events){
+  for(const event of projected){
     const group=presentationGroupKey(event);
     if(group){
       if(emittedGroups.has(group))continue;

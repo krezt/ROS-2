@@ -43,5 +43,5 @@ test('Stage25Y Electromancer Lightning Bolt proc remains an explicit damage-feed
   assert.equal(found.cmd.targetId,'G0');
   assert.match(scene,/electroProc=Boolean\(command\.payload\?\.proc===true&&attacker\?\.unit\?\.archetypeId==='Electromancer'&&ability==='ELECTRO_ATTACK'\)/);
   assert.match(scene,/electroProc\?'#66ddff'/);
-  assert.match(scene,/electroProc\?\{yOffset:8,duration:380\}:\{\}/);
+  assert.match(scene,/electroProc&&!critical\?\{yOffset:8,duration:380\}:\{\}/);
 });

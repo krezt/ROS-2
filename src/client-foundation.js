@@ -542,16 +542,88 @@ function compactStatusName(key) {
 
 const PLAYER_LOG_NEGATIVE_STATUSES=new Set(['stun','silence','taunt','berserk','root','suppression','spellbreak','marked','blind','bleed','def_down','rend_def_down','atk_down','sdm_down','res_down']);
 
+const PLAYER_LOG_CONTROL_ACTIONS=Object.freeze({
+  INSULT:'taunt',
+  MYSTIC_STUN:'stun',
+  BERSERK:'berserk',
+  MENTAL_BREAKDOWN:'spellbreak'
+});
+
+const PLAYER_LOG_ABILITY_SUMMARIES=Object.freeze({
+  WARHORN:{covers:['warhorn_attacks_up','warhorn_movement_up'],text:({actor})=>`${actor} casts Warhorn. Allies gain momentum and attack tempo.`},
+  SHIELDWALL:{covers:['physical_shield','shield_redirect'],text:({actor})=>`${actor} uses Shieldwall. Allies gain physical protection while ${actor} prepares to intercept attacks.`},
+  DIG_IN:{covers:['def_up','physical_shield'],text:({actor})=>`${actor} uses Dig In. ${actor} braces, heals, and fortifies defenses.`},
+  RAMPAGE:{covers:['atk_up','def_down'],text:({actor})=>`${actor} uses Rampage. ${actor} becomes more aggressive and vulnerable to attacks.`},
+  WAR_CRY:{covers:['def_down'],text:({actor})=>`${actor} unleashes War Cry. Enemies are battered and their defenses weakened.`},
+  POISON_DAGGER:{covers:['poison_imbue'],text:({actor})=>`${actor} casts Poison Imbue. ${actor}'s blades are coated with poison.`},
+  SHADOWSTEP:{covers:['invisible','shadowstep_crit'],text:({actor})=>`${actor} casts Shadowstep. ${actor} vanishes and prepares a deadly strike.`},
+  SMOKE_BOMB:{covers:['blind'],text:({actor})=>`${actor} uses Smoke Bomb. Enemies are Blinded as ${actor} recovers health.`},
+  DEFENSIVE_AURA:{covers:['def_up','res_up'],text:({actor})=>`${actor} casts Defensive Aura. ${actor} restores health and reinforces physical and magical defenses.`},
+  GUARDIAN_ANGEL:{covers:['divine_shield'],text:({actor,target})=>`${actor} casts Guardian Angel on ${target}. ${target} is healed and shielded.`},
+  ENIDS_BLESSING:{hideRemovals:true,text:({actor})=>`${actor} casts Enid's Blessing. Allies are healed and cleansed of Poison.`},
+  ARCANE_SURGE:{covers:['def_up','sdm_up','shift'],text:({actor})=>`${actor} casts Arcane Surge. ${actor} gains magical power, defense, and Shift.`},
+  ARCANE_ECHO:{covers:['arcane_echo'],text:({actor})=>`${actor} casts Arcane Echo. ${actor}'s next spell will echo.`},
+  ARCANE_WARD:{covers:['magic_shield'],text:({actor})=>`${actor} casts Arcane Ward. Allies gain magical protection.`},
+  DIVINE_SHIELD:{covers:['divine_shield'],text:({actor,target})=>`${actor} casts Divine Shield on ${target}. ${target} is heavily protected.`},
+  CLEANSE:{hideRemovals:true,text:({actor,target})=>`${actor} casts Cleanse on ${target}. Negative effects are removed and ${target} is healed.`},
+  SANCTIFY:{covers:['ward'],text:({actor})=>`${actor} casts Sanctify. Allies are protected by Ward.`},
+  RANGERS_FOCUS:{covers:['atk_up','regen'],text:({actor,target})=>`${actor} casts Ranger's Focus on ${target}. ${target} is healed and empowered.`},
+  HUNTERS_MARK:{covers:['marked','def_down'],text:({actor,target})=>`${actor} casts Hunter's Mark on ${target}. ${target} is exposed to heavier damage.`},
+  FLURRY:{covers:['attacks_max_up','flurry_style'],text:({actor})=>`${actor} uses Flurry Style. ${actor} prepares a rapid flurry of attacks.`},
+  CHI_WAVE:{hideRemovals:true,text:({actor})=>`${actor} casts Chi Wave. Allies are cleansed of control and debuffs.`},
+  COUNTERSTANCE:{covers:['counterstance','counterstance_movement_up'],text:({actor})=>`${actor} uses Counterstance. ${actor} gains mobility and can counter freely.`},
+  SECOND_WIND:{covers:['regen','def_up'],hideRemovals:true,text:({actor})=>`${actor} uses Second Wind. ${actor} cleanses debuffs, regenerates health, and gains defense.`},
+  PREMONITION:{covers:['premonition','dodge_up'],text:({actor})=>`${actor} casts Premonition. Allies act sooner and become harder to hit.`},
+  THIEFS_HASTE:{covers:['shinobi_haste'],text:({actor})=>`${actor} casts Thief's Haste. ${actor}'s movement surges.`},
+  INVISIBILITY:{covers:['invisible'],text:({actor})=>`${actor} casts Invisibility. ${actor} vanishes.`},
+  BLEED_STRIKE:{covers:['bleed_imbue'],text:({actor})=>`${actor} casts Bleed Imbue. ${actor}'s blades are primed to inflict Bleed.`},
+  REGEN_POTION:{hideRemovals:true,text:({actor})=>`${actor} uses Regen Potion. ${actor} recovers health and cures Poison.`},
+  GOD_TEMPEST:{covers:['atk_up','sdm_up','def_up','res_up'],hideRemovals:true,text:({actor})=>`${actor} casts God Tempest. ${actor} cleanses, fully heals, and becomes empowered.`},
+  SHIFT:{covers:['shift'],text:({actor})=>`${actor} casts Shift. ${actor} is ready to blink away when struck.`},
+  POWER_SURGE:{covers:['atk_up','sdm_up'],text:({actor})=>`${actor} casts Power Surge. Allies surge with offensive power.`}
+});
+
+function playerLogCriticalDamageIds(events){
+  const source=Array.isArray(events)?events:[];
+  const byId=new Map(source.map(e=>[e.eventId,e]));
+  const claimed=new Set(),critical=new Set();
+  const matches=(crit,e)=>{
+    if(!e||e.type!==EVENT_TYPE.DAMAGE||claimed.has(e.eventId))return false;
+    if(e.actorId!==crit.actorId||e.targetId!==crit.targetId)return false;
+    const cp=crit.payload??{},ep=e.payload??{};
+    if(cp.abilityId!=null&&ep.abilityId!==cp.abilityId)return false;
+    if(cp.procLabel!=null&&ep.procLabel!==cp.procLabel)return false;
+    return true;
+  };
+  for(let i=0;i<source.length;i++){
+    const crit=source[i];if(crit?.type!==EVENT_TYPE.CRIT)continue;
+    // Passive proc damage emits DAMAGE first and then a CRIT event parented to that
+    // exact damage event. Honor that direct causal link before using the legacy
+    // forward association used by ordinary attacks/spells.
+    const direct=crit.parentEventId?byId.get(crit.parentEventId):null;
+    if(matches(crit,direct)){critical.add(direct.eventId);claimed.add(direct.eventId);continue;}
+    const cp=crit.payload??{};
+    for(let j=i+1;j<source.length;j++){
+      const e=source[j];
+      if(e.initiativeCycle!==crit.initiativeCycle && e.sequence>crit.sequence+12)break;
+      if(!matches(crit,e))continue;
+      if(crit.parentEventId&&e.parentEventId!==crit.parentEventId)continue;
+      critical.add(e.eventId);claimed.add(e.eventId);break;
+    }
+  }
+  return critical;
+}
+
 /**
  * Build the default player-facing combat log from the full authoritative event stream.
  * The detailed/debug formatter above remains available behind the UI's Detailed toggle.
  *
- * The compact plan intentionally:
- * - removes cycle coordinates and unit ids;
- * - hides scheduler/cast-complete/status-expiry bookkeeping;
- * - preserves every individual attack hit, miss and dodge in authoritative order;
- * - highlights critical hits on the exact strike that critted;
- * - aggregates poison applications and multi-target healing where practical.
+ * Simple mode is replay narration rather than a declaration/debug feed:
+ * - action declarations stay hidden until they actually resolve;
+ * - compound buffs/debuffs collapse into one human-readable action line;
+ * - every individual attack hit/miss/dodge/counter remains visible in authoritative order;
+ * - critical styling is attached to the exact damage event that critted;
+ * - low-value scheduler/status bookkeeping remains in Detailed mode only.
  */
 export function buildPlayerCombatLogPlan(events, state) {
   const source=Array.isArray(events)?events:[];
@@ -574,28 +646,31 @@ export function buildPlayerCombatLogPlan(events, state) {
     return null;
   };
   const actionAbility=(root,event)=>{
-    const actorId=event?.actorId??root?.actorId;
-    const abilityId=event?.payload?.abilityId??root?.payload?.actionId??null;
+    const actorId=root?.actorId??event?.actorId;
+    const abilityId=event?.payload?.abilityId??event?.payload?.actionId??root?.payload?.actionId??null;
     if(!actorId||!abilityId)return null;
     const archetypeId=state?.units?.[actorId]?.archetypeId;
     if(!archetypeId)return null;
     try{return getAbility(archetypeId,abilityId);}catch{return null;}
   };
   const contextKey=(root,event)=>root?.eventId??`FREE:${event.eventId}`;
-  const critImpactParents=new Set(source.filter(e=>e.type===EVENT_TYPE.CRIT&&e.parentEventId).map(e=>e.parentEventId));
+  const criticalDamageIds=playerLogCriticalDamageIds(source);
   const koByDamageId=new Map(source.filter(e=>e.type===EVENT_TYPE.KO&&e.parentEventId).map(e=>[e.parentEventId,e]));
   const linkedKoIds=new Set(koByDamageId.values().map(e=>e.eventId));
-  const healGroups=new Map(), poisonGroups=new Map(), statusGroups=new Map();
-
+  const healGroups=new Map(), poisonGroups=new Map(), statusGroups=new Map(), procStatusGroups=new Map();
   const group=(map,key,init)=>{if(!map.has(key))map.set(key,init());return map.get(key);};
+  const summarySpecFor=(abilityId)=>PLAYER_LOG_ABILITY_SUMMARIES[String(abilityId??'').toUpperCase()]??null;
+  const coveredBySummary=(abilityId,key)=>summarySpecFor(abilityId)?.covers?.includes(String(key??'').toLowerCase())===true;
 
   for(const event of source){
     const p=event.payload??{};
     const root=contextRoot(event);
     const actor=compactUnitName(state,event.actorId),target=compactUnitName(state,event.targetId);
+    const rootActor=compactUnitName(state,root?.actorId??event.actorId);
     const ability=actionAbility(root,event);
-    const abilityId=p.abilityId??root?.payload?.actionId??null;
+    const abilityId=p.abilityId??p.actionId??root?.payload?.actionId??null;
     const abilityName=ability?.label??(abilityId?displayActionName(state,event.actorId,abilityId):'');
+    const summarySpec=summarySpecFor(abilityId);
 
     if(event.type===EVENT_TYPE.DAMAGE){
       if(String(p.source??'').toUpperCase()==='STATUS_TICK'){
@@ -605,7 +680,7 @@ export function buildPlayerCombatLogPlan(events, state) {
         continue;
       }
       const procLabel=p.procLabel??'';
-      const critical=critImpactParents.has(event.parentEventId);
+      const critical=criticalDamageIds.has(event.eventId);
       const killed=koByDamageId.has(event.eventId);
       const isCounter=root?.type===EVENT_TYPE.COUNTER;
       const plainAttack=abilityName==='Attack'&&!procLabel;
@@ -630,12 +705,19 @@ export function buildPlayerCombatLogPlan(events, state) {
     }
 
     if(event.type===EVENT_TYPE.HEAL){
+      const procLabel=p.procLabel??'';
       if(p.blockedByBleed){
-        add(event.eventId,`Bleed prevents ${target} from healing${abilityName?` with ${abilityName}`:''}.`,'status bleed');
+        if(procLabel)add(event.eventId,`${actor}'s ${procLabel} procs, but Bleed prevents the healing.`,'status bleed');
+        else add(event.eventId,`Bleed prevents ${target} from healing${abilityName?` with ${abilityName}`:''}.`,'status bleed');
         continue;
       }
-      const amount=Number(p.amount??0);if(amount<=0)continue;
-      const procLabel=p.procLabel??'';
+      const amount=Number(p.amount??0);
+      // A passive proc is still meaningful information even when overheal reduces
+      // its effective healing to zero. Never let a successful proc disappear.
+      if(amount<=0){
+        if(procLabel)add(event.eventId,`${actor}'s ${procLabel} procs, but ${target} is already at full HP.`,'proc');
+        continue;
+      }
       const key=`${contextKey(root,event)}|${event.actorId??''}|${abilityId??''}|${procLabel}`;
       const g=group(healGroups,key,()=>({root,actorId:event.actorId,abilityId,abilityName,procLabel,targets:[],total:0,lastEventId:event.eventId}));
       g.targets.push({id:event.targetId,name:target,amount});g.total+=amount;g.lastEventId=event.eventId;
@@ -644,16 +726,43 @@ export function buildPlayerCombatLogPlan(events, state) {
 
     if(event.type===EVENT_TYPE.STATUS_APPLY){
       const keyName=String(p.key??'').toLowerCase();
+      const rosterProc=ability?.basicProc??null;
+      const rosterProcKeys=new Set([
+        String(rosterProc?.key??'').toLowerCase(),
+        ...(rosterProc?.additionalStatuses??[]).map(x=>String(x?.key??'').toLowerCase())
+      ].filter(Boolean));
+      // Most passive status procs carry explicit metadata. Arc Shock travels through
+      // the generic control resolver, which intentionally emits ordinary STUN events;
+      // infer the proc identity from the authoritative basic-attack ability context
+      // rather than changing combat-event payloads or hashes just for presentation.
+      const inferredBasicProc=Boolean(rosterProc&&rosterProcKeys.has(keyName)&&String(abilityId??'')===String(ability?.id??''));
+      const isProc=p.proc===true||p.data?.proc===true||inferredBasicProc;
+      const procLabel=p.procLabel??p.data?.procLabel??(inferredBasicProc?rosterProc?.label:'')??'';
+      // Passive status procs are narrated before ordinary control/ability summaries
+      // so their identity cannot be swallowed by the generic Stun/DEF-Up path.
+      if(isProc){
+        const key=`${contextKey(root,event)}|${event.actorId??''}|${procLabel}|${p.duration??''}`;
+        const g=group(procStatusGroups,key,()=>({actorId:event.actorId,procLabel,duration:p.duration,targets:new Map(),statuses:new Map(),lastEventId:event.eventId}));
+        g.targets.set(event.targetId,(g.targets.get(event.targetId)??0)+1);
+        g.statuses.set(keyName,(g.statuses.get(keyName)??0)+1);g.lastEventId=event.eventId;
+        continue;
+      }
+      const controlKey=PLAYER_LOG_CONTROL_ACTIONS[String(abilityId??'').toUpperCase()];
+      if(controlKey===keyName){
+        const verb=ability?.actionKind===ACTION_KIND.SPELL?'casts':'uses';
+        add(event.eventId,`${rootActor} ${verb} ${abilityName} on ${target} — ${target} is ${keyName==='taunt'?'Taunted':keyName==='berserk'?'Berserked':keyName==='spellbreak'?'afflicted by Spellbreak':'Stunned'}${Number.isFinite(p.duration)?` for ${p.duration} round${p.duration===1?'':'s'}`:''}.`,'status control');
+        continue;
+      }
+      if(coveredBySummary(abilityId,keyName))continue;
       if(keyName==='poison'&&Number.isFinite(p.contribution?.amount)){
         const key=`${contextKey(root,event)}|${event.actorId??''}|${event.targetId??''}|${abilityId??''}`;
         const g=group(poisonGroups,key,()=>({root,actorId:event.actorId,targetId:event.targetId,abilityId,abilityName,totalAdded:0,lastTotal:null,lastEventId:event.eventId}));
         g.totalAdded+=Number(p.contribution.amount);if(Number.isFinite(p.total))g.lastTotal=p.total;g.lastEventId=event.eventId;
         continue;
       }
-      const isProc=p.data?.proc===true;
-      if(!PLAYER_LOG_NEGATIVE_STATUSES.has(keyName)&&!isProc)continue;
-      const key=`${contextKey(root,event)}|${event.actorId??''}|${keyName}|${p.data?.procLabel??''}|${p.duration??''}`;
-      const g=group(statusGroups,key,()=>({root,actorId:event.actorId,key:keyName,duration:p.duration,procLabel:p.data?.procLabel??'',targets:new Map(),lastEventId:event.eventId}));
+      if(!PLAYER_LOG_NEGATIVE_STATUSES.has(keyName))continue;
+      const key=`${contextKey(root,event)}|${event.actorId??''}|${keyName}|${p.duration??''}`;
+      const g=group(statusGroups,key,()=>({root,actorId:event.actorId,key:keyName,duration:p.duration,targets:new Map(),lastEventId:event.eventId}));
       const prev=g.targets.get(event.targetId)??0;g.targets.set(event.targetId,prev+1);g.lastEventId=event.eventId;
       continue;
     }
@@ -662,33 +771,57 @@ export function buildPlayerCombatLogPlan(events, state) {
       case EVENT_TYPE.ROUND_START:
         add(event.eventId,`— ROUND ${p.roundNumber??state?.roundNumber??''} —`,'round');
         break;
-      case EVENT_TYPE.ACTION_START: {
-        const a=actionAbility(event,event);
-        if(!a)break;
-        const isPlainAttack=a.actionKind===ACTION_KIND.BASIC_ATTACK&&a.label==='Attack';
-        if(isPlainAttack||a.actionKind===ACTION_KIND.HOLD)break;
-        let verb='uses';
-        if(a.actionKind===ACTION_KIND.SPELL)verb='casts';
-        else if(a.actionKind===ACTION_KIND.BASIC_ATTACK)verb='uses';
+      case EVENT_TYPE.ACTION_START:
+        // Simple mode is resolution-timed; declarations remain available in Detailed mode.
+        break;
+      case EVENT_TYPE.ACTION_COMPLETE:
+      case EVENT_TYPE.CAST_COMPLETE:
+      case EVENT_TYPE.ITEM_COMPLETE: {
+        if(!ability)break;
+        if(PLAYER_LOG_CONTROL_ACTIONS[String(ability.id).toUpperCase()])break;
         const targetPart=event.targetId&&event.targetId!==event.actorId?` on ${target}`:'';
-        add(event.eventId,`${actor} ${verb} ${a.label}${targetPart}.`,'action');
+        if(summarySpec?.text)add(event.eventId,summarySpec.text({actor,target,ability}),'action');
+        else{
+          const verb=event.type===EVENT_TYPE.ITEM_COMPLETE?'uses':(ability.actionKind===ACTION_KIND.SPELL?'casts':'uses');
+          add(event.eventId,`${actor} ${verb} ${ability.label}${targetPart}.`,'action');
+        }
         break;
       }
       case EVENT_TYPE.COUNTER:
-        // Counter outcome is folded into the resulting hit/miss summary.
         break;
       case EVENT_TYPE.INTERCEPT:
         add(event.eventId,`${actor} intercepts the attack for ${target}.`,'action');
         break;
       case EVENT_TYPE.BLOCK: {
         const reason=String(p.reason??'').toUpperCase();
-        if(reason==='STATUS_RESIST')add(event.eventId,`${target} resists ${compactStatusName(p.blockedStatusKey)}!`,'status control');
+        const rosterProc=ability?.basicProc??null;
+        const blockedKey=String(p.blockedStatusKey??p.blockedControl??'').toLowerCase();
+        const rosterProcKeys=new Set([
+          String(rosterProc?.key??'').toLowerCase(),
+          ...(rosterProc?.additionalStatuses??[]).map(x=>String(x?.key??'').toLowerCase())
+        ].filter(Boolean));
+        const inferredBasicProc=Boolean(rosterProc&&blockedKey&&rosterProcKeys.has(blockedKey)&&String(abilityId??'')===String(ability?.id??''));
+        const procLabel=p.procLabel??p.data?.procLabel??(inferredBasicProc?rosterProc?.label:'')??'';
+        if((p.proc===true||p.data?.proc===true||inferredBasicProc)&&procLabel){
+          const blocked=compactStatusName(p.blockedStatusKey??p.blockedControl??'effect');
+          const procActor=compactUnitName(state,root?.actorId??p.hostileSourceId??event.actorId);
+          if(reason==='WARD')add(event.eventId,`${procActor}'s ${procLabel} procs on ${target} — ${target}'s Ward blocks ${blocked}.`,'proc');
+          else add(event.eventId,`${procActor}'s ${procLabel} procs on ${target} — ${target} resists ${blocked}!`,'proc');
+          break;
+        }
+        const controlKey=PLAYER_LOG_CONTROL_ACTIONS[String(abilityId??'').toUpperCase()];
+        if(controlKey&&['STATUS_RESIST','WARD'].includes(reason)){
+          const verb=ability?.actionKind===ACTION_KIND.SPELL?'casts':'uses';
+          const ending=reason==='WARD'?`${target}'s Ward blocks it!`:`${target} resists!`;
+          add(event.eventId,`${rootActor} ${verb} ${abilityName} on ${target} — ${ending}`,'status control');
+        }else if(reason==='STATUS_RESIST')add(event.eventId,`${target} resists ${compactStatusName(p.blockedStatusKey)}!`,'status control');
         else if(reason==='WARD')add(event.eventId,`${target}'s Ward blocks ${compactStatusName(p.blockedStatusKey)}.`,'status positive');
         else if(reason==='SPELLBREAK')add(event.eventId,`Spellbreak interrupts ${target}'s spell!`,'status control');
         else add(event.eventId,`${target} blocks the effect.`,'combat');
         break;
       }
       case EVENT_TYPE.STATUS_REMOVE: {
+        if(summarySpec?.hideRemovals)break;
         const status=compactStatusName(p.key);
         if(p.reason==='CLEANSE')add(event.eventId,`${actor} cleanses ${status} from ${target}.`,'status positive');
         else if(p.reason==='DISPEL')add(event.eventId,`${actor} dispels ${status} from ${target}.`,'status negative');
@@ -726,7 +859,8 @@ export function buildPlayerCombatLogPlan(events, state) {
     const positive=g.targets.filter(t=>t.amount>0);
     if(!positive.length)continue;
     if(positive.length===1){
-      add(g.lastEventId,`${source} heals ${positive[0].name} for ${positive[0].amount} HP.`,'heal');
+      if(g.procLabel)add(g.lastEventId,`${actor}'s ${source} procs — heals ${positive[0].name} for ${positive[0].amount} HP.`,'proc');
+      else add(g.lastEventId,`${source} heals ${positive[0].name} for ${positive[0].amount} HP.`,'heal');
     }else{
       const detail=positive.map(t=>`${t.name} ${t.amount}`).join(', ');
       add(g.lastEventId,`${actor}'s ${source} heals ${detail} (${g.total} total).`,'heal');
@@ -740,16 +874,29 @@ export function buildPlayerCombatLogPlan(events, state) {
     add(g.lastEventId,`${actor}'s ${source} adds ${g.totalAdded} Poison to ${target}${totalPart}.`,'status poison');
   }
 
+  for(const g of procStatusGroups.values()){
+    const actor=compactUnitName(state,g.actorId);
+    const names=[...g.targets.keys()].map(id=>compactUnitName(state,id));
+    const totalApplications=Math.max(...g.targets.values(),1);
+    const statuses=[...g.statuses.keys()].map(compactStatusName);
+    const rounds=Number.isFinite(g.duration)?` for ${g.duration} round${g.duration===1?'':'s'}`:'';
+    let text;
+    if(String(g.procLabel).toLowerCase()==='resolve')text=`${actor}'s Resolve procs — DEF rises${totalApplications>1?` ×${totalApplications}`:''}${rounds}.`;
+    else if(String(g.procLabel).toLowerCase()==='opening')text=`${actor} finds an Opening — ATK rises${totalApplications>1?` ×${totalApplications}`:''}${rounds}.`;
+    else if(String(g.procLabel).toLowerCase()==='guard falter')text=`${actor}'s Guard Falter procs — ${names.join(' and ')} suffer ${statuses.join(' + ')}${rounds}.`;
+    else if(String(g.procLabel).toLowerCase()==='arc shock')text=`${actor}'s Arc Shock procs — ${names.join(' and ')} ${names.length===1?'is':'are'} Stunned${rounds}.`;
+    else text=`${actor}'s ${g.procLabel||'passive'} procs on ${names.join(' and ')} — ${statuses.join(' + ')}${totalApplications>1?` ×${totalApplications}`:''}${rounds}.`;
+    const negative=statuses.some(s=>/Down|Stun|Blind|Marked|Bleed|Poison|Spellbreak|Berserk|Taunt/i.test(s));
+    add(g.lastEventId,text,negative?'proc negative':'proc positive');
+  }
+
   for(const g of statusGroups.values()){
     const status=compactStatusName(g.key),actor=compactUnitName(state,g.actorId);
     const names=[...g.targets.keys()].map(id=>compactUnitName(state,id));
     const totalApplications=[...g.targets.values()].reduce((a,b)=>a+b,0);
     const rounds=Number.isFinite(g.duration)?` for ${g.duration} round${g.duration===1?'':'s'}`:'';
     let text;
-    if(g.procLabel){
-      const targetText=names.length===1?names[0]:names.join(', ');
-      text=`${actor} procs ${g.procLabel} on ${targetText}: ${status}${totalApplications>1?` ×${totalApplications}`:''}${rounds}.`;
-    }else if(g.key==='blind'){
+    if(g.key==='blind'){
       text=`${names.join(' and ')} ${names.length===1?'is':'are'} Blinded${rounds}.`;
     }else if(g.key==='stun'){
       text=`${names.join(' and ')} ${names.length===1?'is':'are'} Stunned${rounds}.`;

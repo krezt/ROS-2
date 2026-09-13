@@ -1,9 +1,9 @@
 {
   "name": "ros2-simulation-core",
-  "version": "0.25.35-stage25ai-per-attack-combat-log",
+  "version": "0.25.37-stage25ak-proc-log-completeness",
   "private": true,
   "type": "module",
-  "description": "Realm of Shinobi 2.0 deterministic combat — Stage 25AI concise player log with per-attack hit/miss/dodge/crit visibility",
+  "description": "Realm of Shinobi 2.0 deterministic combat \u2014 Stage 25AJ resolution-timed player log, exact per-bounce crit narration, yellow crit damage numbers",
   "scripts": {
     "test": "node --test",
     "demo": "node demo/stage23-demo.js",

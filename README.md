@@ -1,3 +1,30 @@
+## Stage 25AK — Complete Proc Narration Polish
+
+Stage 25AK is a combat-log/presentation-only follow-up to Stage 25AJ. Gameplay mechanics, balance values, RNG, networking, VFX timing, AI, spectator mode and authoritative combat rules are unchanged.
+
+- **Every current passive/basic proc is explicitly represented in the concise player log:** Cleric **Prayer Mend**, Mage **Arc Shock**, Monk **Opening**, Necromancer **Life Drip**, Mystic **Guard Falter**, Paladin **Resolve**, and Electromancer **Lightning Bolt**.
+- **Zero-effective heal procs no longer disappear:** if Prayer Mend fires while Cleric is already at full HP, the log still tells the player that Prayer Mend proc'd.
+- **Bleed-blocked healing procs remain visible:** the proc is named even when Bleed prevents the healing portion.
+- **Arc Shock proc identity is recovered presentation-side from the basic-attack context**, including when a Ward blocks the Stun. This does not add presentation metadata to authoritative combat events or alter deterministic hashes.
+- **Guard Falter is summarized as one proc line** communicating both DEF Down and RES Down instead of exposing two separate internal status applications.
+- **Proc criticals are associated with the exact passive damage event**, including proc systems whose CRIT event is emitted after the DAMAGE event; yellow critical damage-number presentation remains correct.
+- **Detailed mode remains authoritative/diagnostic** and unchanged in purpose.
+- Full automated suite: **701/701 passing**.
+
+## Stage 25AJ — Resolution-Timed Player Combat Log Polish
+
+Stage 25AJ is presentation-only. It preserves Stage 25AI gameplay, balance, VFX, spectator mode, replay timing and deterministic networking while further simplifying the default player-facing combat log.
+
+- **Resolution-timed narration:** simple mode no longer prints round-start action declarations. Spells/abilities appear when they actually resolve, so the log follows what the replay is showing rather than announcing future outcomes.
+- **Compound actions summarized:** multi-effect setup abilities use one human-readable line instead of exposing each internal status application. For example, Rampage reads: `Barbarian uses Rampage. Barbarian becomes more aggressive and vulnerable to attacks.`
+- **Control outcomes combined:** control spells resolve as concise outcome lines such as `Mystic casts Stun on Mage — Mage resists!` or a successful application with its duration.
+- **Individual attacks preserved:** every hit, miss, dodge, counter, proc and KO remains separately visible in authoritative order.
+- **Exact Chain Lightning crits:** a CRIT is now associated with the exact matching damage event, so one critical bounce no longer makes the entire chain appear critical (and normal opening bounces no longer hide later crits).
+- **Crit overhead cleanup:** the separate overhead `CRIT!` word is removed. The actual damage number turns **gold/yellow** on the exact critical hit. The authoritative CRIT event is still retained for the Detailed log.
+- **Detailed mode unchanged in purpose:** cycle ids, unit ids, declarations, CRIT events, mitigation, status bookkeeping, network messages and hashes remain available through **DETAILED**.
+- **No mechanics changed.**
+- Full automated suite: **696/696 passing**.
+
 
 ## Stage 25AI — Per-Attack Player Combat Log
 
